@@ -45,16 +45,27 @@ def parse_date(v):
         return None
 
 
+def _safe_int(v):
+    try: return int(float(v))
+    except: return 0
+
+
 def load_files():
-    """폴더의 모든 xlsx 읽어서 (날짜, 브랜드, 광고비) 합산"""
-    daily = {}  # (date, brand) -> ad_cost
+    """폴더의 모든 xlsx 읽어서 (날짜, 브랜드) 단위로 metric 합산"""
+    daily = {}  # (date, brand) -> {ad, imp, click, conv, conv_rev}
     skipped = []
     for fpath in sorted(glob.glob(f"{SRC_DIR}/*.xlsx")):
         fname = os.path.basename(fpath)
         df = pd.read_excel(fpath, header=0)
-        # 컬럼 정규화
-        camp_col = '캠페인명' if '캠페인명' in df.columns else '캠페인 이름'
-        ad_col = '광고비' if '광고비' in df.columns else '집행 광고비'
+        cols = df.columns
+        camp_col = '캠페인명' if '캠페인명' in cols else '캠페인 이름'
+        ad_col = '광고비' if '광고비' in cols else '집행 광고비'
+        imp_col = '노출수' if '노출수' in cols else None
+        click_col = '클릭수' if '클릭수' in cols else None
+        conv_col = '총 주문수(1일)' if '총 주문수(1일)' in cols else None
+        conv_rev_col = ('총 전환매출액(1일)' if '총 전환매출액(1일)' in cols
+                        else ('첫구매를 통한 광고 전환 매출' if '첫구매를 통한 광고 전환 매출' in cols
+                              else None))
         date_col = '날짜'
         rows = 0
         for _, r in df.iterrows():
@@ -65,15 +76,16 @@ def load_files():
             if brand is None:
                 skipped.append(r[camp_col])
                 continue
-            ad = r[ad_col]
-            try:
-                ad = int(float(ad))
-            except:
-                ad = 0
+            ad = _safe_int(r[ad_col])
             if ad <= 0:
                 continue
             key = (d, brand)
-            daily[key] = daily.get(key, 0) + ad
+            entry = daily.setdefault(key, {'ad':0,'imp':0,'click':0,'conv':0,'conv_rev':0})
+            entry['ad'] += ad
+            if imp_col: entry['imp'] += _safe_int(r[imp_col])
+            if click_col: entry['click'] += _safe_int(r[click_col])
+            if conv_col: entry['conv'] += _safe_int(r[conv_col])
+            if conv_rev_col: entry['conv_rev'] += _safe_int(r[conv_rev_col])
             rows += 1
         print(f"  {fname}: {rows} 행 집계")
     if skipped:
@@ -91,12 +103,12 @@ def main():
     # 기존 쿠팡 데이터 삭제 (재임포트)
     conn.execute("DELETE FROM ads WHERE 광고채널='쿠팡'")
     inserted = 0
-    for (d, brand), ad in daily.items():
+    for (d, brand), v in daily.items():
         conn.execute(
             """INSERT OR REPLACE INTO ads
                (날짜, 광고채널, 광고비, 노출수, 클릭수, 전환수, 전환매출, 브랜드)
                VALUES (?,?,?,?,?,?,?,?)""",
-            (d, "쿠팡", ad, 0, 0, 0, 0, brand)
+            (d, "쿠팡", v['ad'], v['imp'], v['click'], v['conv'], v['conv_rev'], brand)
         )
         inserted += 1
     conn.commit()

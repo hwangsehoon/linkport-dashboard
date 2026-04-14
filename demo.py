@@ -1038,8 +1038,19 @@ elif page == "⚙️ 설정":
 
                     udf["_브랜드"] = udf[camp_col].apply(lambda x: detect_brand(str(x)) or "기타")
                     udf["_광고비"] = pd.to_numeric(udf[cost_col], errors='coerce').fillna(0).astype(int)
+                    imp_col = '노출수' if '노출수' in cols else None
+                    click_col = '클릭수' if '클릭수' in cols else None
+                    conv_col = '총 주문수(1일)' if '총 주문수(1일)' in cols else None
+                    conv_rev_col = ('총 전환매출액(1일)' if '총 전환매출액(1일)' in cols
+                                    else ('첫구매를 통한 광고 전환 매출' if '첫구매를 통한 광고 전환 매출' in cols else None))
+                    metric_cols = [c for c in [imp_col, click_col, conv_col, conv_rev_col] if c]
+                    for c in metric_cols:
+                        udf[f"_{c}"] = pd.to_numeric(udf[c], errors='coerce').fillna(0).astype(int)
 
-                    daily = udf.groupby([date_col, "_브랜드"]).agg(_광고비=("_광고비","sum")).reset_index()
+                    agg_dict = {"_광고비": "sum"}
+                    for c in metric_cols:
+                        agg_dict[f"_{c}"] = "sum"
+                    daily = udf.groupby([date_col, "_브랜드"]).agg(agg_dict).reset_index()
 
                     _upload_conn = sqlite3.connect("dashboard_data.db")
                     for _, row in daily.iterrows():
@@ -1052,11 +1063,15 @@ elif page == "⚙️ 설정":
                         ad = int(row["_광고비"])
                         if ad <= 0:
                             continue
+                        imp = int(row[f"_{imp_col}"]) if imp_col else 0
+                        click = int(row[f"_{click_col}"]) if click_col else 0
+                        conv = int(row[f"_{conv_col}"]) if conv_col else 0
+                        conv_rev = int(row[f"_{conv_rev_col}"]) if conv_rev_col else 0
                         _upload_conn.execute(
                             """INSERT OR REPLACE INTO ads
                                (날짜, 광고채널, 광고비, 노출수, 클릭수, 전환수, 전환매출, 브랜드)
                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                            (formatted_date, "쿠팡", ad, 0, 0, 0, 0, row["_브랜드"]),
+                            (formatted_date, "쿠팡", ad, imp, click, conv, conv_rev, row["_브랜드"]),
                         )
                     _upload_conn.commit()
                     _upload_conn.close()
