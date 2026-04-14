@@ -45,8 +45,43 @@ st.markdown("""
         color: #E8E4DE !important;
     }
     section[data-testid="stSidebar"] .stRadio label[data-checked="true"] span {
-        color: #D97757 !important;
-        font-weight: 600 !important;
+        color: #FFFFFF !important;
+        font-weight: 700 !important;
+    }
+    /* 사이드바 메뉴 카드형 */
+    section[data-testid="stSidebar"] .stRadio > div {
+        gap: 6px !important;
+    }
+    section[data-testid="stSidebar"] .stRadio > div > label {
+        display: flex !important;
+        align-items: center !important;
+        background: #3D3B38 !important;
+        border: 1px solid #4A4745 !important;
+        border-radius: 10px !important;
+        padding: 11px 16px !important;
+        margin: 0 !important;
+        transition: all 0.18s ease !important;
+        cursor: pointer !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+    }
+    section[data-testid="stSidebar"] .stRadio > div > label:hover {
+        background: #4A4745 !important;
+        transform: translateX(3px);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+    }
+    section[data-testid="stSidebar"] .stRadio > div > label[data-checked="true"] {
+        background: linear-gradient(135deg, #D97757 0%, #C4694D 100%) !important;
+        border-color: #D97757 !important;
+        box-shadow: 0 4px 14px rgba(217,119,87,0.45);
+        transform: translateX(2px);
+    }
+    /* 라디오 동그라미 점 숨김 */
+    section[data-testid="stSidebar"] .stRadio > div > label > div:first-child {
+        display: none !important;
+    }
+    section[data-testid="stSidebar"] .stRadio > div > label span {
+        font-size: 0.95rem !important;
+        font-weight: 500 !important;
     }
     section[data-testid="stSidebar"] hr {
         border-color: #4A4745 !important;
@@ -617,6 +652,35 @@ with st.sidebar:
         ["📊 대시보드", "🏷️ 브랜드 분석", "📆 월별 분석", "🏪 채널 분석", "⚙️ 설정"],
         label_visibility="collapsed",
     )
+
+    st.divider()
+
+    # 자동 새로고침 (5분, 깜빡임 최소화)
+    _auto_refresh = st.toggle("자동 새로고침 (5분)", value=False, key="auto_refresh_toggle")
+    if _auto_refresh:
+        try:
+            from streamlit_autorefresh import st_autorefresh
+            st_autorefresh(interval=5 * 60 * 1000, key="autorefresher")
+        except ImportError:
+            st.caption("⚠ streamlit-autorefresh 미설치")
+
+    # 다크 모드 토글
+    _dark = st.toggle("🌙 다크 모드", value=False, key="dark_mode_toggle")
+    if _dark:
+        st.markdown("""
+        <style>
+        .stApp, [data-testid="stAppViewContainer"] { background-color: #1A1916 !important; }
+        .kpi-card, .stPlotlyChart, [data-testid="stMetric"], [data-testid="stExpander"], [data-testid="stDataFrame"] {
+            background: #2D2B28 !important;
+            border-color: #3D3B38 !important;
+            color: #E8E4DE !important;
+        }
+        .kpi-value, h1, h2, h3, .section-title { color: #FAF9F6 !important; }
+        .kpi-label, .muted-text { color: #B8B2AA !important; }
+        [data-testid="stMetricValue"] { color: #FAF9F6 !important; }
+        .empty-state { background: #2D2B28 !important; color: #B8B2AA !important; }
+        </style>
+        """, unsafe_allow_html=True)
 
     st.divider()
     if _data_mode == "API":
