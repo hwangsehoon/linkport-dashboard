@@ -1010,23 +1010,26 @@ elif page == "📆 월별 분석":
         # 광고 퍼널 + 효율 버블 차트 (좌/우)
         col_funnel, col_bubble = st.columns([1, 1])
         with col_funnel:
-            st.caption("광고 퍼널 (전체 채널 합계)")
+            st.caption(f"광고 퍼널 (전체 채널 합계, 전환매출 ₩{int(ad_ch['전환매출'].sum()):,})")
             _imp = int(ad_ch["노출수"].sum())
             _click = int(ad_ch["클릭수"].sum())
             _conv = int(ad_ch["전환수"].sum())
-            _rev = int(ad_ch["전환매출"].sum())
+            _ctr = (_click / max(1, _imp) * 100)
+            _cvr = (_conv / max(1, _click) * 100)
             fig_funnel = go.Figure(go.Funnel(
-                y=["노출수", "클릭수", "전환수", "전환매출(원)"],
-                x=[_imp, _click * 100, _conv * 10000, _rev / 100],
-                text=[f"{_imp:,}", f"{_click:,}", f"{_conv:,}건", fmt_full(_rev)],
+                y=["노출수", "클릭수", "전환수"],
+                x=[_imp, _click, _conv],
+                text=[f"{_imp:,}", f"{_click:,}<br><span style='font-size:10px;color:#8C8680'>CTR {_ctr:.2f}%</span>",
+                      f"{_conv:,}건<br><span style='font-size:10px;color:#8C8680'>CVR {_cvr:.2f}%</span>"],
                 textinfo="text",
-                marker={"color": ["#7B8DBF", "#A88B6E", "#E89373", "#D97757"]},
+                textposition="inside",
+                marker={"color": ["#7B8DBF", "#E89373", "#D97757"]},
                 connector={"line": {"color": "#E8E4DE"}},
             ))
             fig_funnel.update_layout(
                 height=320, margin=dict(l=20, r=20, t=10, b=10),
                 plot_bgcolor="#FAF9F6", paper_bgcolor="#FAF9F6",
-                font=dict(family="Noto Sans KR", size=11, color="#3D3B38"),
+                font=dict(family="Noto Sans KR", size=11, color="#FFFFFF"),
             )
             st.plotly_chart(fig_funnel, use_container_width=True, config={"displayModeBar": False})
 
