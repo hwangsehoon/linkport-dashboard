@@ -182,12 +182,11 @@ class Cafe24Client:
             def _f(v):
                 try: return float(v or 0)
                 except: return 0.0
-            # 매출 = 실결제금액(payment_amount) + 네이버페이 포인트 - 자사 적립금 사용
-            # (배송비는 payment_amount/naver_point에 자동 포함됨)
+            # 매출 = 실결제금액(payment_amount) + 네이버페이 포인트
+            # payment_amount는 이미 적립금 차감 후 값이므로 다시 빼지 않음
             payment_amt = _f(actual.get("payment_amount") or o.get("payment_amount"))
             naver_pt = _f(o.get("naver_point"))
-            points_spent = _f(actual.get("points_spent_amount"))
-            amount = max(0, int(payment_amt + naver_pt - points_spent))
+            amount = max(0, int(payment_amt + naver_pt))
             rows.append({
                 "날짜": pd.to_datetime(order_date).date(),
                 "스토어": self.store_name,
