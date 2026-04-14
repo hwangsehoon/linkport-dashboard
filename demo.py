@@ -139,8 +139,23 @@ st.markdown("""
     }
     .stButton > button {
         border-radius: 8px !important;
-        border-color: #D9D4CE !important;
-        color: #3D3B38 !important;
+        background-color: #3D3B38 !important;
+        border-color: #3D3B38 !important;
+        color: #FFFFFF !important;
+        font-weight: 500 !important;
+        transition: all 0.15s ease !important;
+    }
+    .stButton > button:hover {
+        background-color: #1F1E1C !important;
+        border-color: #1F1E1C !important;
+        color: #FFFFFF !important;
+        font-weight: 700 !important;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    .stButton > button:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
     /* selectbox / input */
