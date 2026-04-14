@@ -135,6 +135,13 @@ class SmartStoreClient:
         rows = []
         for order in all_orders:
             product_order = order.get("productOrder", {})
+            # 취소/환불 주문 제외
+            status = product_order.get("productOrderStatus", "")
+            claim_status = product_order.get("claimStatus", "") or ""
+            if status in ("CANCELED", "RETURNED"):
+                continue
+            if claim_status in ("CANCEL_DONE", "RETURN_DONE"):
+                continue
             # placeOrderDate(주문일) 사용, 없으면 decisionDate
             order_date = (
                 product_order.get("placeOrderDate", "") or
