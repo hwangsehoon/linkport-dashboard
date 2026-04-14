@@ -1,0 +1,44 @@
+name: Daily Sync (KST 09:00)
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # UTC 00:00 = KST 09:00
+  workflow_dispatch:  # 수동 실행 가능
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install deps
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run sync
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          CAFE24_CLIENT_ID: ${{ secrets.CAFE24_CLIENT_ID }}
+          CAFE24_CLIENT_SECRET: ${{ secrets.CAFE24_CLIENT_SECRET }}
+          CAFE24_MALL_ID_AZACHA: ${{ secrets.CAFE24_MALL_ID_AZACHA }}
+          CAFE24_MALL_ID_BANDREUP: ${{ secrets.CAFE24_MALL_ID_BANDREUP }}
+          CAFE24_MALL_ID_WELBIOGEN: ${{ secrets.CAFE24_MALL_ID_WELBIOGEN }}
+          SMARTSTORE_CLIENT_ID: ${{ secrets.SMARTSTORE_CLIENT_ID }}
+          SMARTSTORE_CLIENT_SECRET: ${{ secrets.SMARTSTORE_CLIENT_SECRET }}
+          COUPANG_ACCESS_KEY: ${{ secrets.COUPANG_ACCESS_KEY }}
+          COUPANG_SECRET_KEY: ${{ secrets.COUPANG_SECRET_KEY }}
+          COUPANG_VENDOR_ID: ${{ secrets.COUPANG_VENDOR_ID }}
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+          META_AD_ACCOUNT_ID: ${{ secrets.META_AD_ACCOUNT_ID }}
+          META_APP_ID: ${{ secrets.META_APP_ID }}
+          META_APP_SECRET: ${{ secrets.META_APP_SECRET }}
+          NAVER_SA_API_KEY: ${{ secrets.NAVER_SA_API_KEY }}
+          NAVER_SA_SECRET_KEY: ${{ secrets.NAVER_SA_SECRET_KEY }}
+          NAVER_SA_CUSTOMER_ID: ${{ secrets.NAVER_SA_CUSTOMER_ID }}
+        run: python sync_data.py
