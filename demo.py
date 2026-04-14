@@ -82,9 +82,24 @@ st.markdown("""
     }
     section[data-testid="stSidebar"] .stRadio > div > label[data-checked="true"] {
         background: linear-gradient(135deg, #D97757 0%, #C4694D 100%) !important;
-        border-color: #D97757 !important;
-        box-shadow: 0 4px 14px rgba(217,119,87,0.45);
-        transform: translateX(2px);
+        border-color: #FFB088 !important;
+        border-width: 1px !important;
+        border-left: 4px solid #FFFFFF !important;
+        box-shadow: 0 6px 20px rgba(217,119,87,0.55), inset 0 0 0 1px rgba(255,255,255,0.15);
+        transform: translateX(4px);
+        padding-left: 14px !important;
+    }
+    section[data-testid="stSidebar"] .stRadio > div > label[data-checked="true"]::after {
+        content: "▸";
+        margin-left: auto;
+        font-size: 1.1rem;
+        color: #FFFFFF;
+        font-weight: 700;
+    }
+    section[data-testid="stSidebar"] .stRadio > div > label[data-checked="true"] span {
+        font-size: 1rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.02em;
     }
     /* 라디오 동그라미 점 숨김 */
     section[data-testid="stSidebar"] .stRadio > div > label > div:first-child {
