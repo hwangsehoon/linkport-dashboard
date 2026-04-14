@@ -239,7 +239,7 @@ st.markdown("""
         color: #2D2B28;
         font-size: 1.05rem;
         font-weight: 600;
-        margin-bottom: 16px;
+        margin: 28px 0 16px 0;
         padding-bottom: 8px;
         border-bottom: 2px solid #D97757;
         display: inline-block;
@@ -247,11 +247,57 @@ st.markdown("""
     .accent-text { color: #D97757; font-weight: 600; }
     .muted-text { color: #8C8680; font-size: 0.85rem; }
 
+    /* 페이지 헤더 */
+    .page-header {
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid #E8E4DE;
+    }
+
+    /* 빈 상태 UI */
+    .empty-state {
+        background: #FFFFFF;
+        border: 1px dashed #D9D4CE;
+        border-radius: 12px;
+        padding: 48px 24px;
+        text-align: center;
+        color: #8C8680;
+    }
+
+    /* 차트 컨테이너 (호버 효과) */
+    .stPlotlyChart {
+        background: #FFFFFF;
+        border-radius: 12px;
+        padding: 8px;
+        border: 1px solid #E8E4DE;
+        transition: box-shadow 0.2s;
+    }
+    .stPlotlyChart:hover {
+        box-shadow: 0 4px 12px rgba(45,43,40,0.08);
+    }
+
+    /* 컬럼 사이 간격 */
+    [data-testid="column"] { padding: 0 6px; }
+
+    /* 사이드바 토글 버튼 더 잘 보이게 */
+    [data-testid="stSidebarCollapseButton"] {
+        background: #D97757 !important;
+        border-radius: 50% !important;
+    }
+
+    /* 데이터프레임 hover */
+    [data-testid="stDataFrame"] tbody tr:hover {
+        background-color: #F4F1EC !important;
+    }
+
     /* 반응형 */
     @media (max-width: 768px) {
         [data-testid="stMetric"] { padding: 10px 14px; min-height: auto; }
         [data-testid="stMetricValue"] { font-size: 1.1rem; }
+        .kpi-card { min-height: 110px; padding: 12px 14px; }
+        .kpi-value { font-size: 1.2rem !important; }
         h1 { font-size: 1.4rem !important; }
+        [data-testid="column"] { padding: 0 3px; }
     }
     .js-plotly-plot { width: 100% !important; }
 </style>
@@ -264,7 +310,10 @@ st.markdown("""
 PLOT_BG = "#FFFFFF"
 PLOT_AREA = "#FAF9F6"
 PLOT_FONT = dict(color="#3D3B38", family="Noto Sans KR")
-HOVER_STYLE = dict(bgcolor="#2D2B28", font_size=13, font_color="#FAF9F6", bordercolor="#2D2B28")
+HOVER_STYLE = dict(
+    bgcolor="rgba(45,43,40,0.95)", font_size=12, font_color="#FAF9F6",
+    bordercolor="#D97757", font_family="Noto Sans KR",
+)
 GRID_COLOR = "#E8E4DE"
 
 # 브랜드 컬러
