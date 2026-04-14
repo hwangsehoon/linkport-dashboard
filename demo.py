@@ -65,7 +65,7 @@ st.markdown("""
         font-family: 'Noto Sans KR', sans-serif !important;
     }
 
-    /* 메트릭 카드 - 클로드 스타일 */
+    /* 메트릭 카드 (기본) - 다른 페이지용 */
     [data-testid="stMetric"] {
         background: #FFFFFF;
         border: 1px solid #E8E4DE;
@@ -75,22 +75,82 @@ st.markdown("""
         min-height: 100px;
         transition: box-shadow 0.2s;
     }
-    [data-testid="stMetric"]:hover {
-        box-shadow: 0 4px 12px rgba(45,43,40,0.1);
-    }
-    [data-testid="stMetricLabel"] {
-        font-size: 0.78rem;
-        color: #8C8680 !important;
-        font-weight: 500;
-        letter-spacing: 0.02em;
-    }
-    [data-testid="stMetricValue"] {
-        font-size: 1.35rem;
-        color: #2D2B28 !important;
-        font-weight: 700;
-    }
+    [data-testid="stMetric"]:hover { box-shadow: 0 4px 12px rgba(45,43,40,0.1); }
+    [data-testid="stMetricLabel"] { font-size: 0.78rem; color: #8C8680 !important; font-weight: 500; letter-spacing: 0.02em; }
+    [data-testid="stMetricValue"] { font-size: 1.35rem; color: #2D2B28 !important; font-weight: 700; }
     [data-testid="stMetricDelta"] { font-size: 0.72rem; }
     [data-testid="stMetricDelta"] svg { width: 0.7rem; height: 0.7rem; }
+
+    /* 신규 KPI 카드 */
+    .kpi-card {
+        background: #FFFFFF;
+        border: 1px solid #E8E4DE;
+        border-radius: 14px;
+        padding: 18px 20px 14px 20px;
+        box-shadow: 0 1px 3px rgba(45,43,40,0.05);
+        min-height: 138px;
+        transition: all 0.2s ease;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+    .kpi-card:hover {
+        box-shadow: 0 6px 18px rgba(45,43,40,0.1);
+        transform: translateY(-2px);
+    }
+    .kpi-label {
+        font-size: 0.78rem;
+        color: #8C8680;
+        font-weight: 500;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        margin-bottom: 6px;
+    }
+    .kpi-value {
+        font-size: 1.55rem;
+        color: #2D2B28;
+        font-weight: 700;
+        line-height: 1.2;
+        margin-bottom: 4px;
+    }
+    .kpi-delta {
+        font-size: 0.78rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .kpi-delta-pos { color: #4A8C5F; }
+    .kpi-delta-neg { color: #C4694D; }
+    .kpi-delta-neu { color: #8C8680; }
+    .kpi-spark {
+        margin-top: 8px;
+        height: 28px;
+        display: flex;
+        align-items: end;
+    }
+    .kpi-progress-wrap {
+        margin-top: 8px;
+    }
+    .kpi-progress-track {
+        background: #F0EDE8;
+        border-radius: 10px;
+        height: 6px;
+        overflow: hidden;
+    }
+    .kpi-progress-fill {
+        background: linear-gradient(90deg, #D97757, #E89373);
+        height: 100%;
+        border-radius: 10px;
+        transition: width 0.6s ease;
+    }
+    .kpi-progress-text {
+        font-size: 0.68rem;
+        color: #8C8680;
+        margin-top: 3px;
+        display: flex;
+        justify-content: space-between;
+    }
 
     /* 탭 스타일 */
     div[data-testid="stTabs"] button {
@@ -300,6 +360,73 @@ def fmt_date(d):
 def delta_str(curr, prev):
     if prev == 0: return None
     return f"{(curr - prev) / abs(prev) * 100:+.1f}%"
+
+
+def _spark_svg(values, color="#D97757", width=140, height=28):
+    """미니 스파크라인 SVG 생성"""
+    if not values or len(values) < 2:
+        return ""
+    vals = [float(v) for v in values]
+    vmin, vmax = min(vals), max(vals)
+    rng = vmax - vmin if vmax != vmin else 1
+    n = len(vals)
+    pts = []
+    for i, v in enumerate(vals):
+        x = i * (width / (n - 1))
+        y = height - 2 - ((v - vmin) / rng) * (height - 4)
+        pts.append(f"{x:.1f},{y:.1f}")
+    poly = " ".join(pts)
+    last_x = (n - 1) * (width / (n - 1))
+    last_y = height - 2 - ((vals[-1] - vmin) / rng) * (height - 4)
+    area = f"M0,{height} L{poly.replace(' ', ' L')} L{last_x},{height} Z"
+    return (
+        f'<svg width="100%" viewBox="0 0 {width} {height}" preserveAspectRatio="none" style="display:block;">'
+        f'<path d="{area}" fill="{color}" opacity="0.12"/>'
+        f'<polyline points="{poly}" fill="none" stroke="{color}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>'
+        f'<circle cx="{last_x:.1f}" cy="{last_y:.1f}" r="2.2" fill="{color}"/>'
+        '</svg>'
+    )
+
+
+def kpi_card(label, value, delta_pct=None, spark=None, target_pct=None,
+             invert_delta=False, spark_color="#D97757"):
+    """고도화 KPI 카드 (HTML)
+    - delta_pct: 전기 대비 % (양수=상승)
+    - invert_delta: True면 양수가 빨강 (광고비처럼 적을수록 좋음)
+    - spark: 시계열 값 리스트 (스파크라인)
+    - target_pct: 목표 진행률 % (0~100+)
+    """
+    delta_html = ""
+    if delta_pct is not None:
+        is_pos = delta_pct >= 0
+        good = (not is_pos) if invert_delta else is_pos
+        cls = "kpi-delta-pos" if good else "kpi-delta-neg"
+        if abs(delta_pct) < 0.05:
+            cls = "kpi-delta-neu"
+        arrow = "▲" if is_pos else "▼"
+        delta_html = f'<div class="kpi-delta {cls}">{arrow} {abs(delta_pct):.1f}% <span style="color:#8C8680;font-weight:400;margin-left:2px;">전기대비</span></div>'
+
+    bottom = ""
+    if target_pct is not None:
+        fill_w = max(0, min(100, target_pct))
+        bottom = (
+            f'<div class="kpi-progress-wrap">'
+            f'<div class="kpi-progress-track"><div class="kpi-progress-fill" style="width:{fill_w}%;"></div></div>'
+            f'<div class="kpi-progress-text"><span>목표</span><span>{target_pct:.0f}%</span></div>'
+            f'</div>'
+        )
+    elif spark:
+        bottom = f'<div class="kpi-spark">{_spark_svg(spark, spark_color)}</div>'
+
+    html = (
+        f'<div class="kpi-card">'
+        f'<div><div class="kpi-label">{label}</div>'
+        f'<div class="kpi-value">{value}</div>'
+        f'{delta_html}</div>'
+        f'{bottom}'
+        f'</div>'
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
 def get_daily(date_from, date_to, store_filter=None):
     ds = df_sales[(df_sales["날짜"] >= date_from) & (df_sales["날짜"] <= date_to)]
@@ -515,15 +642,27 @@ if page == "📊 대시보드":
     t_broas = t_rev / max(1, t_ad) * 100
     y_broas = y_rev / max(1, y_ad) * 100
 
-    # KPI 카드
+    # KPI 카드 (스파크라인 7일치 데이터)
     st.markdown('<div class="section-title">오늘 매출 현황</div>', unsafe_allow_html=True)
+    _spark_data = get_daily(today - timedelta(6), today, sf)
+    spark_rev = _spark_data["매출"].tolist() if not _spark_data.empty else []
+    spark_ord = _spark_data["주문건수"].tolist() if not _spark_data.empty else []
+    spark_aov = (_spark_data["매출"] / _spark_data["주문건수"].replace(0, 1)).astype(int).tolist() if not _spark_data.empty else []
+    spark_ad = _spark_data["광고비"].tolist() if not _spark_data.empty else []
+    spark_roas = (_spark_data["전환매출"] / _spark_data["광고비"].replace(0, 1) * 100).round(1).tolist() if not _spark_data.empty else []
+    spark_broas = (_spark_data["매출"] / _spark_data["광고비"].replace(0, 1) * 100).round(1).tolist() if not _spark_data.empty else []
+
+    def _d(c, p):
+        if p == 0: return None
+        return (c - p) / abs(p) * 100
+
     c1, c2, c3, c4, c5, c6 = st.columns(6)
-    with c1: st.metric("매출", fmt(t_rev), delta_str(t_rev, y_rev))
-    with c2: st.metric("주문건수", f"{t_orders}건", delta_str(t_orders, y_orders))
-    with c3: st.metric("객단가", fmt(t_aov), delta_str(t_aov, y_aov))
-    with c4: st.metric("광고비", fmt(t_ad), delta_str(t_ad, y_ad), delta_color="inverse")
-    with c5: st.metric("ROAS", pct(t_roas), delta_str(t_roas, y_roas))
-    with c6: st.metric("B.ROAS", pct(t_broas), delta_str(t_broas, y_broas))
+    with c1: kpi_card("매출", fmt(t_rev), _d(t_rev, y_rev), spark=spark_rev)
+    with c2: kpi_card("주문건수", f"{t_orders}건", _d(t_orders, y_orders), spark=spark_ord, spark_color="#7B8DBF")
+    with c3: kpi_card("객단가", fmt(t_aov), _d(t_aov, y_aov), spark=spark_aov, spark_color="#A88B6E")
+    with c4: kpi_card("광고비", fmt(t_ad), _d(t_ad, y_ad), spark=spark_ad, invert_delta=True, spark_color="#B8B2AA")
+    with c5: kpi_card("ROAS", pct(t_roas), _d(t_roas, y_roas), spark=spark_roas, spark_color="#4A8C5F")
+    with c6: kpi_card("B.ROAS", pct(t_broas), _d(t_broas, y_broas), spark=spark_broas, spark_color="#4A8C5F")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -547,13 +686,15 @@ if page == "📊 대시보드":
 
     st.markdown(f'<div class="section-title">{_month_label} 목표 달성</div>', unsafe_allow_html=True)
     m0, m1, m2, m3, m4 = st.columns(5)
-    with m0: st.metric("달성률", pct(achieve))
-    with m1: st.metric("누적 매출", fmt(m_rev))
-    with m2: st.metric("남은 일수", f"{remaining}일")
-    with m3: st.metric("일평균 필요매출", fmt(int(daily_needed)))
-    with m4:
-        pace = "순조" if m_rev / max(1, today.day) >= daily_needed else "부족"
-        st.metric("진행 상태", pace, f"현재 일평균 {fmt(int(m_rev / max(1, today.day)))}")
+    with m0: kpi_card("달성률", pct(achieve), target_pct=achieve)
+    with m1: kpi_card("누적 매출", fmt(m_rev), target_pct=achieve)
+    with m2: kpi_card("남은 일수", f"{remaining}일")
+    with m3: kpi_card("일평균 필요매출", fmt(int(daily_needed)))
+    _cur_avg = m_rev / max(1, today.day)
+    _pace_pos = _cur_avg >= daily_needed
+    pace = "순조" if _pace_pos else "부족"
+    pace_value = f'<span style="color:{"#4A8C5F" if _pace_pos else "#C4694D"}">{pace}</span> · {fmt(int(_cur_avg))}'
+    with m4: kpi_card("진행 상태", pace_value)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
