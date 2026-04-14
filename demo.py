@@ -1016,20 +1016,24 @@ elif page == "📆 월별 분석":
             _conv = int(ad_ch["전환수"].sum())
             _ctr = (_click / max(1, _imp) * 100)
             _cvr = (_conv / max(1, _click) * 100)
+            # 시각적 비율 고정 (100 / 65 / 35) - 실제 값은 텍스트로 표시
             fig_funnel = go.Figure(go.Funnel(
                 y=["노출수", "클릭수", "전환수"],
-                x=[_imp, _click, _conv],
-                text=[f"{_imp:,}", f"{_click:,}<br><span style='font-size:10px;color:#8C8680'>CTR {_ctr:.2f}%</span>",
-                      f"{_conv:,}건<br><span style='font-size:10px;color:#8C8680'>CVR {_cvr:.2f}%</span>"],
+                x=[100, 65, 35],
+                text=[f"{_imp:,}",
+                      f"{_click:,} · CTR {_ctr:.2f}%",
+                      f"{_conv:,}건 · CVR {_cvr:.2f}%"],
                 textinfo="text",
                 textposition="inside",
+                textfont=dict(size=13, color="#FFFFFF", family="Noto Sans KR"),
                 marker={"color": ["#7B8DBF", "#E89373", "#D97757"]},
                 connector={"line": {"color": "#E8E4DE"}},
             ))
             fig_funnel.update_layout(
                 height=320, margin=dict(l=20, r=20, t=10, b=10),
                 plot_bgcolor="#FAF9F6", paper_bgcolor="#FAF9F6",
-                font=dict(family="Noto Sans KR", size=11, color="#FFFFFF"),
+                font=dict(family="Noto Sans KR", size=12, color="#3D3B38"),
+                xaxis=dict(visible=False),
             )
             st.plotly_chart(fig_funnel, use_container_width=True, config={"displayModeBar": False})
 
