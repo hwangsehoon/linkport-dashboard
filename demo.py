@@ -402,6 +402,55 @@ with st.sidebar:
     st.divider()
     if _data_mode == "API":
         st.caption(f"LIVE · {date.today().strftime('%Y.%m.%d')}")
+        if st.button("🔄 오늘 매출 갱신", use_container_width=True):
+            with st.spinner("API에서 가져오는 중..."):
+                from datetime import date as _d
+                from api.token_manager import check_and_refresh_all as _rt
+                from api.db import save_sales as _ss, save_ads as _sa, mark_fetched as _mf
+                _today = _d.today()
+                _msgs = []
+                try:
+                    _rt()
+                except Exception as e:
+                    _msgs.append(f"토큰: {e}")
+                # 매출 (오늘만)
+                for _svc, _mod, _fn in [
+                    ("cafe24","api.cafe24","fetch_all_cafe24"),
+                    ("smartstore","api.smartstore","fetch_smartstore"),
+                    ("coupang","api.coupang","fetch_coupang"),
+                ]:
+                    if not is_configured(_svc): continue
+                    try:
+                        _m = __import__(_mod, fromlist=[_fn])
+                        _df = getattr(_m, _fn)(_today, _today)
+                        if not _df.empty:
+                            _ss(_df); _mf(_svc, [_today])
+                            _msgs.append(f"{_svc}: {len(_df)}건")
+                        else:
+                            _msgs.append(f"{_svc}: 0건")
+                    except Exception as e:
+                        _msgs.append(f"{_svc}: 실패 {str(e)[:40]}")
+                # 광고 (오늘만)
+                for _svc, _mod, _fn in [
+                    ("meta","api.meta_ads","fetch_meta_ads"),
+                    ("naver_sa","api.naver_sa","fetch_naver_sa"),
+                ]:
+                    if not is_configured(_svc): continue
+                    try:
+                        _m = __import__(_mod, fromlist=[_fn])
+                        _df = getattr(_m, _fn)(_today, _today)
+                        if not _df.empty:
+                            _sa(_df); _mf(_svc, [_today])
+                            _msgs.append(f"{_svc}: {len(_df)}건")
+                        else:
+                            _msgs.append(f"{_svc}: 0건")
+                    except Exception as e:
+                        _msgs.append(f"{_svc}: 실패 {str(e)[:40]}")
+            for _m in _msgs:
+                st.caption(_m)
+            st.cache_data.clear()
+            st.success("갱신 완료")
+            st.rerun()
     else:
         st.caption("DEMO MODE")
 
