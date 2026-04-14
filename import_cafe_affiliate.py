@@ -1,7 +1,7 @@
-"""카페제휴/바이럴 광고비·매출 시트 임포트 (2026~)
+"""기타/바이럴 광고비·매출 시트 임포트 (2026~)
 - 링포 광고일지_YYYY.xlsx 에서 각 브랜드 섹션의 '바이럴', '기타(일매출 포함x)' 컬럼만 추출
-- 광고비 → ads 테이블 (광고채널='카페제휴', 브랜드별)
-- 매출 → sales 테이블 (스토어='카페제휴', 채널='카페제휴', 브랜드별)
+- 광고비 → ads 테이블 (광고채널='기타', 브랜드별)
+- 매출 → sales 테이블 (스토어='기타', 채널='기타', 브랜드별)
 - 매월 시트 갱신 후 재실행 시 INSERT OR REPLACE로 덮어씀
 """
 import os
@@ -25,7 +25,7 @@ LABEL_TO_BRAND = {
     '마르문': '아자차',
 }
 
-# 카페제휴/바이럴로 간주할 채널 키워드 (브랜드 섹션의 채널 헤더)
+# 기타/바이럴로 간주할 채널 키워드 (브랜드 섹션의 채널 헤더)
 CAFE_KEYWORDS = ['바이럴', '기타(일매출 포함x)', '기 타(일매출 포함x)', '기 타', '카페']
 
 
@@ -37,7 +37,7 @@ def detect_brand_from_section(label):
 
 
 def extract_from_sheet(fpath, sheet_name, year, month):
-    """한 월 시트에서 카페제휴/바이럴 데이터 추출"""
+    """한 월 시트에서 기타/바이럴 데이터 추출"""
     df = pd.read_excel(fpath, sheet_name=sheet_name, header=None)
     rows = []  # [(date, brand, ad, rev), ...]
     # 모든 브랜드 합계 섹션 찾기
@@ -56,7 +56,7 @@ def extract_from_sheet(fpath, sheet_name, year, month):
             data_end = data_start + 33
             date_col = 2
 
-            # 카페제휴 관련 컬럼 (광고비/매출 쌍)
+            # 기타 관련 컬럼 (광고비/매출 쌍)
             cafe_cols = []  # [(ad_col, rev_col), ...]
             for ch_c in range(5, min(40, len(df.columns))):
                 ch_v = df.iloc[header_row, ch_c]
@@ -136,9 +136,9 @@ def main():
     print(f"\n총 {len(all_rows)}건 적재")
 
     conn = sqlite3.connect(DB_PATH)
-    # 기존 카페제휴 데이터 (해당 연도) 클리어
-    conn.execute(f"DELETE FROM ads WHERE 광고채널='카페제휴' AND substr(날짜,1,4)='{year}'")
-    conn.execute(f"DELETE FROM sales WHERE 채널='카페제휴' AND substr(날짜,1,4)='{year}'")
+    # 기존 기타 데이터 (해당 연도) 클리어
+    conn.execute(f"DELETE FROM ads WHERE 광고채널='기타' AND substr(날짜,1,4)='{year}'")
+    conn.execute(f"DELETE FROM sales WHERE 채널='기타' AND substr(날짜,1,4)='{year}'")
 
     # 일자/브랜드 단위로 합산 (여러 채널 라벨이 같은 브랜드면 합침)
     agg = {}
@@ -155,26 +155,26 @@ def main():
                 """INSERT OR REPLACE INTO ads
                    (날짜, 광고채널, 광고비, 노출수, 클릭수, 전환수, 전환매출, 브랜드)
                    VALUES (?,?,?,?,?,?,?,?)""",
-                (d, '카페제휴', v['ad'], 0, 0, 0, 0, brand)
+                (d, '기타', v['ad'], 0, 0, 0, 0, brand)
             )
         if v['rev'] > 0:
             conn.execute(
                 """INSERT OR REPLACE INTO sales
                    (날짜, 스토어, 채널, 주문건수, 매출, 객단가, 순방문자수, 전환율, 브랜드)
                    VALUES (?,?,?,?,?,?,?,?,?)""",
-                (d, f'{brand}(카페제휴)', '카페제휴', 0, v['rev'], 0, 0, 0.0, brand)
+                (d, f'{brand}(기타)', '기타', 0, v['rev'], 0, 0, 0.0, brand)
             )
     conn.commit()
 
-    print("\n=== 월별 카페제휴 합계 ===")
+    print("\n=== 월별 기타 합계 ===")
     for row in conn.execute(
         f"SELECT substr(날짜,1,7) m, SUM(광고비) FROM ads "
-        f"WHERE 광고채널='카페제휴' AND substr(날짜,1,4)='{year}' GROUP BY m ORDER BY m"
+        f"WHERE 광고채널='기타' AND substr(날짜,1,4)='{year}' GROUP BY m ORDER BY m"
     ):
         print(f"  {row[0]} 광고비: {row[1]:,}")
     for row in conn.execute(
         f"SELECT substr(날짜,1,7) m, SUM(매출) FROM sales "
-        f"WHERE 채널='카페제휴' AND substr(날짜,1,4)='{year}' GROUP BY m ORDER BY m"
+        f"WHERE 채널='기타' AND substr(날짜,1,4)='{year}' GROUP BY m ORDER BY m"
     ):
         print(f"  {row[0]} 매출: {row[1]:,}")
 

@@ -326,7 +326,15 @@ def apply_plotly_theme(fig):
             font=dict(size=11, color="#8C8680"),
             bgcolor="rgba(0,0,0,0)",
         ),
-        xaxis=dict(gridcolor=GRID_COLOR, showline=False, tickformat="%m/%d"),
+        xaxis=dict(
+            gridcolor=GRID_COLOR, showline=False,
+            tickformatstops=[
+                dict(dtickrange=[None, 86400000*7], value="%-m/%-d"),
+                dict(dtickrange=[86400000*7, 86400000*60], value="%-m월 %-d일"),
+                dict(dtickrange=[86400000*60, "M12"], value="%Y년 %-m월"),
+                dict(dtickrange=["M12", None], value="%Y년"),
+            ],
+        ),
         yaxis=dict(gridcolor=GRID_COLOR, showline=False),
         hoverlabel=HOVER_STYLE,
     )
@@ -557,9 +565,9 @@ if page == "📊 대시보드":
         period_sel = st.selectbox("기간", list(period_options.keys()), index=2, key="dash_period")
     if period_sel == "직접 설정":
         with col_f:
-            d_from = st.date_input("시작", today - timedelta(30), key="dash_from")
+            d_from = st.date_input("시작", format="YYYY/MM/DD", today - timedelta(30), key="dash_from")
         with col_t:
-            d_to = st.date_input("종료", today, key="dash_to")
+            d_to = st.date_input("종료", format="YYYY/MM/DD", today, key="dash_to")
     else:
         d_from = today - timedelta(period_options[period_sel])
         d_to = today
@@ -613,9 +621,9 @@ elif page == "🏷️ 브랜드 분석":
     # 기간 선택
     col1, col2 = st.columns(2)
     with col1:
-        b_from = st.date_input("시작일", date.today() - timedelta(30), key="brand_from")
+        b_from = st.date_input("시작일", format="YYYY/MM/DD", date.today() - timedelta(30), key="brand_from")
     with col2:
-        b_to = st.date_input("종료일", date.today(), key="brand_to")
+        b_to = st.date_input("종료일", format="YYYY/MM/DD", date.today(), key="brand_to")
 
     # 브랜드별 매출 집계 (카페24=스토어명, 스마트스토어=아자차, 쿠팡=브랜드 컬럼)
     bs = df_sales[(df_sales["날짜"] >= b_from) & (df_sales["날짜"] <= b_to)].copy()
@@ -733,9 +741,9 @@ elif page == "📆 월별 분석":
         ch_period = st.selectbox("기간", list(period_map.keys()), index=2, key="month_period")
     if ch_period == "직접 설정":
         with col_f:
-            ch_from = st.date_input("시작", today - timedelta(30), key="month_from")
+            ch_from = st.date_input("시작", format="YYYY/MM/DD", today - timedelta(30), key="month_from")
         with col_t:
-            ch_to = st.date_input("종료", today, key="month_to")
+            ch_to = st.date_input("종료", format="YYYY/MM/DD", today, key="month_to")
     else:
         ch_from = today - timedelta(period_map[ch_period])
         ch_to = today
@@ -843,9 +851,9 @@ elif page == "🏪 채널 분석":
         ch_period = st.selectbox("기간", list(period_map.keys()), index=0, key="ch_period")
     if ch_period == "직접 설정":
         with col_f:
-            ch_from = st.date_input("시작", today - timedelta(90), key="ch_from")
+            ch_from = st.date_input("시작", format="YYYY/MM/DD", today - timedelta(90), key="ch_from")
         with col_t:
-            ch_to = st.date_input("종료", today, key="ch_to")
+            ch_to = st.date_input("종료", format="YYYY/MM/DD", today, key="ch_to")
     else:
         ch_from = today - timedelta(period_map[ch_period])
         ch_to = today
@@ -1092,8 +1100,8 @@ elif page == "⚙️ 설정":
 
                 # 적재
                 _diary_conn = sqlite3.connect("dashboard_data.db")
-                _diary_conn.execute(f"DELETE FROM ads WHERE 광고채널='카페제휴' AND substr(날짜,1,4)='{year}'")
-                _diary_conn.execute(f"DELETE FROM sales WHERE 채널='카페제휴' AND substr(날짜,1,4)='{year}'")
+                _diary_conn.execute(f"DELETE FROM ads WHERE 광고채널='기타' AND substr(날짜,1,4)='{year}'")
+                _diary_conn.execute(f"DELETE FROM sales WHERE 채널='기타' AND substr(날짜,1,4)='{year}'")
                 agg = {}
                 for r in all_rows:
                     k = (r['date'], r['brand'])
@@ -1108,7 +1116,7 @@ elif page == "⚙️ 설정":
                             """INSERT OR REPLACE INTO ads
                                (날짜, 광고채널, 광고비, 노출수, 클릭수, 전환수, 전환매출, 브랜드)
                                VALUES (?,?,?,?,?,?,?,?)""",
-                            (d, '카페제휴', v['ad'], 0, 0, 0, 0, brand)
+                            (d, '기타', v['ad'], 0, 0, 0, 0, brand)
                         )
                         inserted += 1
                     if v['rev'] > 0:
@@ -1116,7 +1124,7 @@ elif page == "⚙️ 설정":
                             """INSERT OR REPLACE INTO sales
                                (날짜, 스토어, 채널, 주문건수, 매출, 객단가, 순방문자수, 전환율, 브랜드)
                                VALUES (?,?,?,?,?,?,?,?,?)""",
-                            (d, f'{brand}(카페제휴)', '카페제휴', 0, v['rev'], 0, 0, 0.0, brand)
+                            (d, f'{brand}(기타)', '기타', 0, v['rev'], 0, 0, 0.0, brand)
                         )
                 _diary_conn.commit()
                 _diary_conn.close()
@@ -1140,7 +1148,7 @@ elif page == "⚙️ 설정":
             if _man_mode == "월별":
                 _man_period = st.text_input("월 (YYYY-MM)", value=date.today().strftime("%Y-%m"), key="man_period_m")
             else:
-                _man_period = st.date_input("날짜", value=date.today(), key="man_period_d")
+                _man_period = st.date_input("날짜", format="YYYY/MM/DD", value=date.today(), key="man_period_d")
         with col2:
             _man_channel = st.text_input("광고 채널명", value="카페 광고", key="man_channel")
         with col3:
