@@ -9,7 +9,8 @@ API 문서: https://developers.facebook.com/docs/marketing-api/insights/
 import requests
 import pandas as pd
 from datetime import date
-from config import META_ACCESS_TOKEN, META_AD_ACCOUNT_ID
+from config import META_AD_ACCOUNT_ID
+from api.token_manager import get_meta_access_token as _get_meta_token
 from brand_config import detect_brand
 
 # Meta 광고 계정 → 브랜드 매핑 (계정 전체가 단일 브랜드인 경우)
@@ -51,7 +52,7 @@ class MetaAdsClient:
         """접근 가능한 광고 계정 목록 조회 (활성 계정만)"""
         url = f"{self.BASE_URL}/me/adaccounts"
         params = {
-            "access_token": META_ACCESS_TOKEN,
+            "access_token": _get_meta_token(),
             "fields": "name,account_id,amount_spent",
             "limit": 100,
         }
@@ -83,7 +84,7 @@ class MetaAdsClient:
         url = f"{self.BASE_URL}/act_{account_id}/insights"
         all_rows = []
         params = {
-            "access_token": META_ACCESS_TOKEN,
+            "access_token": _get_meta_token(),
             "time_range": f'{{"since":"{start_date.isoformat()}","until":"{end_date.isoformat()}"}}',
             "time_increment": 1,
             "fields": "spend,impressions,clicks,actions,action_values",
@@ -98,7 +99,7 @@ class MetaAdsClient:
         url = f"{self.BASE_URL}/act_{account_id}/insights"
         all_rows = []
         params = {
-            "access_token": META_ACCESS_TOKEN,
+            "access_token": _get_meta_token(),
             "time_range": f'{{"since":"{start_date.isoformat()}","until":"{end_date.isoformat()}"}}',
             "time_increment": 1,
             "level": "campaign",

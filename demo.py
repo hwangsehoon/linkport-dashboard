@@ -951,39 +951,45 @@ elif page == "⚙️ 설정":
 
         uploaded_files = st.file_uploader("엑셀 선택 (여러 파일 가능)", type=["xlsx", "xls"], accept_multiple_files=True)
         if uploaded_files:
+            from brand_config import detect_brand
             total_saved = 0
             for uploaded_file in uploaded_files:
                 try:
                     udf = pd.read_excel(uploaded_file)
                     cols = list(udf.columns)
-                    date_col, imp_col, click_col, cost_col = cols[0], cols[13], cols[14], cols[15]
-                    conv_orders_col, conv_revenue_col = cols[17], cols[23]
-                    campaign_col = cols[5]
+                    # 형식 자동 인식
+                    camp_col = '캠페인명' if '캠페인명' in cols else ('캠페인 이름' if '캠페인 이름' in cols else None)
+                    cost_col = '광고비' if '광고비' in cols else ('집행 광고비' if '집행 광고비' in cols else None)
+                    date_col = '날짜' if '날짜' in cols else cols[0]
+                    if not camp_col or not cost_col:
+                        raise ValueError(f"필수 컬럼 없음 (캠페인/광고비). 컬럼: {cols[:8]}")
 
-                    from brand_config import detect_brand
-                    udf["_브랜드"] = udf[campaign_col].apply(lambda x: detect_brand(str(x)))
+                    udf["_브랜드"] = udf[camp_col].apply(lambda x: detect_brand(str(x)) or "기타")
+                    udf["_광고비"] = pd.to_numeric(udf[cost_col], errors='coerce').fillna(0).astype(int)
 
-                    daily = udf.groupby([date_col, "_브랜드"]).agg({
-                        cost_col: "sum", imp_col: "sum", click_col: "sum",
-                        conv_orders_col: "sum", conv_revenue_col: "sum",
-                    }).reset_index()
+                    daily = udf.groupby([date_col, "_브랜드"]).agg(_광고비=("_광고비","sum")).reset_index()
 
                     _upload_conn = sqlite3.connect("dashboard_data.db")
                     for _, row in daily.iterrows():
-                        date_str = str(int(row[date_col]))
-                        formatted_date = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
-                        brand = row["_브랜드"]
+                        d = row[date_col]
+                        ds = str(int(d)) if not isinstance(d, str) else str(d).strip()
+                        if len(ds) == 8 and ds.isdigit():
+                            formatted_date = f"{ds[:4]}-{ds[4:6]}-{ds[6:8]}"
+                        else:
+                            formatted_date = pd.to_datetime(d).date().isoformat()
+                        ad = int(row["_광고비"])
+                        if ad <= 0:
+                            continue
                         _upload_conn.execute(
                             """INSERT OR REPLACE INTO ads
                                (날짜, 광고채널, 광고비, 노출수, 클릭수, 전환수, 전환매출, 브랜드)
                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                            (formatted_date, "쿠팡 광고", int(row[cost_col]), int(row[imp_col]),
-                             int(row[click_col]), int(row[conv_orders_col]), int(row[conv_revenue_col]), brand),
+                            (formatted_date, "쿠팡", ad, 0, 0, 0, 0, row["_브랜드"]),
                         )
                     _upload_conn.commit()
                     _upload_conn.close()
                     total_saved += len(daily)
-                    st.success(f"'{uploaded_file.name}' - {len(daily)}일 저장")
+                    st.success(f"'{uploaded_file.name}' - {len(daily)}건 저장")
                 except Exception as e:
                     st.error(f"'{uploaded_file.name}' 처리 실패: {e}")
 

@@ -18,18 +18,29 @@ TOKEN_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".tokens")
 CA_API_BASE = "https://ca-api.cafe24data.com"
 
 
-def _token_path(mall_id: str) -> str:
-    os.makedirs(TOKEN_DIR, exist_ok=True)
-    return os.path.join(TOKEN_DIR, f"cafe24_{mall_id}.json")
-
-
 def _save_token(mall_id: str, token_data: dict):
-    with open(_token_path(mall_id), "w") as f:
+    """Supabase 우선, 실패 시 로컬 파일"""
+    try:
+        from api.token_manager import set_token
+        set_token(f"cafe24_{mall_id}", token_data)
+        return
+    except Exception:
+        pass
+    os.makedirs(TOKEN_DIR, exist_ok=True)
+    with open(os.path.join(TOKEN_DIR, f"cafe24_{mall_id}.json"), "w") as f:
         json.dump(token_data, f)
 
 
 def _load_token(mall_id: str) -> dict:
-    path = _token_path(mall_id)
+    """Supabase 우선, 실패 시 로컬 파일"""
+    try:
+        from api.token_manager import get_token
+        data = get_token(f"cafe24_{mall_id}")
+        if data:
+            return data
+    except Exception:
+        pass
+    path = os.path.join(TOKEN_DIR, f"cafe24_{mall_id}.json")
     if os.path.exists(path):
         with open(path, "r") as f:
             return json.load(f)
