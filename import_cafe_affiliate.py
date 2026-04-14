@@ -150,19 +150,21 @@ def main():
         agg[k]['rev'] += r['rev']
 
     for (d, brand), v in agg.items():
+        # 웰바이오젠의 기타 광고비는 카페제휴, 나머지는 기타
+        ch = '카페제휴' if brand == '웰바이오젠' else '기타'
         if v['ad'] > 0:
             conn.execute(
                 """INSERT OR REPLACE INTO ads
                    (날짜, 광고채널, 광고비, 노출수, 클릭수, 전환수, 전환매출, 브랜드)
                    VALUES (?,?,?,?,?,?,?,?)""",
-                (d, '기타', v['ad'], 0, 0, 0, 0, brand)
+                (d, ch, v['ad'], 0, 0, 0, 0, brand)
             )
         if v['rev'] > 0:
             conn.execute(
                 """INSERT OR REPLACE INTO sales
                    (날짜, 스토어, 채널, 주문건수, 매출, 객단가, 순방문자수, 전환율, 브랜드)
                    VALUES (?,?,?,?,?,?,?,?,?)""",
-                (d, f'{brand}(기타)', '기타', 0, v['rev'], 0, 0, 0.0, brand)
+                (d, f'{brand}({ch})', ch, 0, v['rev'], 0, 0, 0.0, brand)
             )
     conn.commit()
 
