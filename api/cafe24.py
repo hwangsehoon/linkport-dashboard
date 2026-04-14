@@ -145,24 +145,49 @@ class Cafe24Client:
         return resp.json()
 
     def fetch_sales(self, start_date: date, end_date: date) -> pd.DataFrame:
-        """CA API로 매출 데이터 조회 (결제완료 기준, 카페24 관리자와 일치)"""
+        """admin/orders로 실결제금액 조회 (적립금/쿠폰 차감 후)"""
         if not self.is_authenticated():
             return pd.DataFrame()
 
-        data = self._ca_request("/sales/orderdetails", {
-            "start_date": start_date.isoformat(),
-            "end_date": end_date.isoformat(),
-            "limit": 1000,
-        })
+        url = f"https://{self.mall_id}.cafe24api.com/api/v2/admin/orders"
+        headers = {"Authorization": f"Bearer {self.access_token}"}
+        all_orders = []
+        offset = 0
+        limit = 1000
+        while True:
+            r = requests.get(url, headers=headers, params={
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+                "limit": limit,
+                "offset": offset,
+                "embed": "items",
+            }, timeout=30)
+            if r.status_code != 200:
+                break
+            batch = r.json().get("orders", [])
+            all_orders.extend(batch)
+            if len(batch) < limit:
+                break
+            offset += limit
 
-        details = data.get("orderdetails", [])
-        if not details:
+        if not all_orders:
             return pd.DataFrame()
 
         rows = []
-        for d in details:
-            order_date = d.get("order_date", "")[:10]
-            amount = int(d.get("order_amount", 0))
+        for o in all_orders:
+            order_date = (o.get("payment_date") or o.get("order_date") or "")[:10]
+            if not order_date:
+                continue
+            actual = o.get("actual_order_amount") or {}
+            def _f(v):
+                try: return float(v or 0)
+                except: return 0.0
+            # 매출 = 실결제금액(payment_amount) + 네이버페이 포인트 - 자사 적립금 사용
+            # (배송비는 payment_amount/naver_point에 자동 포함됨)
+            payment_amt = _f(actual.get("payment_amount") or o.get("payment_amount"))
+            naver_pt = _f(o.get("naver_point"))
+            points_spent = _f(actual.get("points_spent_amount"))
+            amount = max(0, int(payment_amt + naver_pt - points_spent))
             rows.append({
                 "날짜": pd.to_datetime(order_date).date(),
                 "스토어": self.store_name,
@@ -170,6 +195,9 @@ class Cafe24Client:
                 "주문건수": 1,
                 "매출": amount,
             })
+
+        if not rows:
+            return pd.DataFrame()
 
         df = pd.DataFrame(rows)
         df = df.groupby(["날짜", "스토어", "채널"]).agg(
