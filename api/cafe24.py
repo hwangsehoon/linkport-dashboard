@@ -175,6 +175,9 @@ class Cafe24Client:
 
         rows = []
         for o in all_orders:
+            # 취소된 주문은 제외
+            if o.get("canceled") == "T":
+                continue
             order_date = (o.get("payment_date") or o.get("order_date") or "")[:10]
             if not order_date:
                 continue
