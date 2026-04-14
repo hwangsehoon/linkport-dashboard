@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# 비밀
+.env
+.tokens/
+*.key
+
+# 로컬 DB (Postgres로 이관)
+dashboard_data.db
+*.db-journal
+
+# 임시/디버그
+*.txt
+!requirements.txt
+debug_*
+*_backup.py
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
