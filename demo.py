@@ -748,6 +748,47 @@ if page == "📊 대시보드":
                 st.metric(row["스토어"], fmt_full(int(row["매출"])), f"{row['전일대비']:+.1f}%")
                 st.caption(f"주문 {int(row['주문건수'])}건 · 객단가 {fmt(int(row['객단가']))}")
 
+    # 매출 캘린더 히트맵 (최근 12주 = 잔디 스타일)
+    st.markdown('<div class="section-title">매출 캘린더 (최근 12주)</div>', unsafe_allow_html=True)
+    _cal_end = today
+    _cal_start = today - timedelta(weeks=12)
+    _cal_data = get_daily(_cal_start, _cal_end, sf)
+    if not _cal_data.empty:
+        _cal_data = _cal_data.set_index("날짜")
+        # 12주 x 7일 grid
+        import numpy as np
+        _all_dates = pd.date_range(_cal_start, _cal_end)
+        _values = []
+        _texts = []
+        _xs = []
+        _ys = []
+        WEEKDAYS = ["월","화","수","목","금","토","일"]
+        for d in _all_dates:
+            dd = d.date()
+            v = float(_cal_data.loc[dd, "매출"]) if dd in _cal_data.index else 0
+            wk = (dd - _cal_start).days // 7
+            wd = d.weekday()
+            _xs.append(wk)
+            _ys.append(6 - wd)  # 월요일 위로
+            _values.append(v)
+            _texts.append(f"{dd.strftime('%Y.%m.%d')} ({WEEKDAYS[wd]})<br>매출 {fmt_full(int(v))}")
+        _vmax = max(_values) if _values else 1
+        fig_cal = go.Figure(data=[go.Heatmap(
+            x=_xs, y=_ys, z=_values, text=_texts, hoverinfo="text",
+            colorscale=[[0,"#F4F1EC"],[0.25,"#F0CBB8"],[0.5,"#E89373"],[1,"#D97757"]],
+            zmin=0, zmax=_vmax,
+            xgap=3, ygap=3, showscale=False,
+        )])
+        fig_cal.update_layout(
+            height=200, margin=dict(l=40, r=20, t=20, b=20),
+            plot_bgcolor="#FAF9F6", paper_bgcolor="#FAF9F6",
+            xaxis=dict(showticklabels=False, showgrid=False, zeroline=False),
+            yaxis=dict(tickmode="array", tickvals=[6,5,4,3,2,1,0],
+                       ticktext=WEEKDAYS, showgrid=False, zeroline=False,
+                       tickfont=dict(size=10, color="#8C8680")),
+        )
+        st.plotly_chart(fig_cal, use_container_width=True, config={"displayModeBar": False})
+
 
 # ══════════════════════════════════════════════
 # PAGE 2: 브랜드 분석
@@ -965,6 +1006,68 @@ elif page == "📆 월별 분석":
     if not ad_ch.empty:
         ad_ch["CTR"] = (ad_ch["클릭수"] / ad_ch["노출수"].replace(0, 1) * 100).round(2)
         ad_ch["ROAS"] = (ad_ch["전환매출"] / ad_ch["광고비"].replace(0, 1) * 100).round(1)
+
+        # 광고 퍼널 + 효율 버블 차트 (좌/우)
+        col_funnel, col_bubble = st.columns([1, 1])
+        with col_funnel:
+            st.caption("광고 퍼널 (전체 채널 합계)")
+            _imp = int(ad_ch["노출수"].sum())
+            _click = int(ad_ch["클릭수"].sum())
+            _conv = int(ad_ch["전환수"].sum())
+            _rev = int(ad_ch["전환매출"].sum())
+            fig_funnel = go.Figure(go.Funnel(
+                y=["노출수", "클릭수", "전환수", "전환매출(원)"],
+                x=[_imp, _click * 100, _conv * 10000, _rev / 100],
+                text=[f"{_imp:,}", f"{_click:,}", f"{_conv:,}건", fmt_full(_rev)],
+                textinfo="text",
+                marker={"color": ["#7B8DBF", "#A88B6E", "#E89373", "#D97757"]},
+                connector={"line": {"color": "#E8E4DE"}},
+            ))
+            fig_funnel.update_layout(
+                height=320, margin=dict(l=20, r=20, t=10, b=10),
+                plot_bgcolor="#FAF9F6", paper_bgcolor="#FAF9F6",
+                font=dict(family="Noto Sans KR", size=11, color="#3D3B38"),
+            )
+            st.plotly_chart(fig_funnel, use_container_width=True, config={"displayModeBar": False})
+
+        with col_bubble:
+            st.caption("채널 효율 (X:광고비 / Y:ROAS / 크기:전환매출)")
+            CHANNEL_COLORS = {
+                "Meta": "#1877F2", "Naver SA": "#03C75A", "쿠팡": "#FF6F61",
+                "카페제휴": "#9B59B6", "기타": "#A88B6E",
+            }
+            ad_ch_pos = ad_ch[ad_ch["광고비"] > 0].copy()
+            if not ad_ch_pos.empty:
+                fig_bub = go.Figure()
+                for _, r in ad_ch_pos.iterrows():
+                    fig_bub.add_trace(go.Scatter(
+                        x=[r["광고비"]], y=[r["ROAS"]],
+                        mode="markers+text",
+                        text=[r["광고채널"]],
+                        textposition="top center",
+                        textfont=dict(size=11, color="#3D3B38"),
+                        marker=dict(
+                            size=max(15, min(60, (r["전환매출"] / max(1, ad_ch_pos["전환매출"].max()) * 60))),
+                            color=CHANNEL_COLORS.get(r["광고채널"], "#8C8680"),
+                            opacity=0.7, line=dict(width=1.5, color="#FFFFFF"),
+                        ),
+                        hovertemplate=f"<b>{r['광고채널']}</b><br>광고비: ₩{int(r['광고비']):,}<br>ROAS: {r['ROAS']}%<br>전환매출: ₩{int(r['전환매출']):,}<extra></extra>",
+                        showlegend=False,
+                    ))
+                # ROAS 100% 기준선
+                fig_bub.add_hline(y=100, line=dict(color="#C4694D", width=1, dash="dash"),
+                                  annotation_text="손익분기 (ROAS 100%)",
+                                  annotation_position="top right",
+                                  annotation_font=dict(size=10, color="#C4694D"))
+                fig_bub.update_layout(
+                    height=320, margin=dict(l=40, r=20, t=10, b=40),
+                    plot_bgcolor="#FAF9F6", paper_bgcolor="#FAF9F6",
+                    font=dict(family="Noto Sans KR", size=10, color="#3D3B38"),
+                    xaxis=dict(title="광고비 (₩)", gridcolor="#E8E4DE", tickformat=",.0f"),
+                    yaxis=dict(title="ROAS (%)", gridcolor="#E8E4DE"),
+                )
+                st.plotly_chart(fig_bub, use_container_width=True, config={"displayModeBar": False})
+
         display_ad = ad_ch.copy()
         display_ad["광고비"] = display_ad["광고비"].apply(lambda x: f"₩{int(x):,}")
         display_ad["전환매출"] = display_ad["전환매출"].apply(lambda x: f"₩{int(x):,}")
