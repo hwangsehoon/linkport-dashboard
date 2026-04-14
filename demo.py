@@ -55,14 +55,22 @@ st.markdown("""
     section[data-testid="stSidebar"] .stRadio > div > label {
         display: flex !important;
         align-items: center !important;
+        justify-content: flex-start !important;
         background: #3D3B38 !important;
         border: 1px solid #4A4745 !important;
         border-radius: 10px !important;
-        padding: 11px 16px !important;
+        padding: 12px 18px !important;
         margin: 0 !important;
+        width: 100% !important;
+        height: 46px !important;
         transition: all 0.18s ease !important;
         cursor: pointer !important;
         box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+        box-sizing: border-box !important;
+    }
+    section[data-testid="stSidebar"] .stRadio > div > label > div:last-child {
+        flex: 1 !important;
+        text-align: left !important;
     }
     section[data-testid="stSidebar"] .stRadio > div > label:hover {
         background: #4A4745 !important;
@@ -342,6 +350,25 @@ st.markdown("""
 # ══════════════════════════════════════════════
 # Plotly 테마 - 클로드 톤
 # ══════════════════════════════════════════════
+def _is_dark():
+    try: return st.session_state.get("dark_mode_toggle", False)
+    except: return False
+
+
+def _theme_colors():
+    if _is_dark():
+        return dict(
+            bg="#1A1916", area="#2D2B28",
+            text="#E8E4DE", muted="#8C8680",
+            grid="#3D3B38",
+        )
+    return dict(
+        bg="#FFFFFF", area="#FAF9F6",
+        text="#3D3B38", muted="#8C8680",
+        grid="#E8E4DE",
+    )
+
+
 PLOT_BG = "#FFFFFF"
 PLOT_AREA = "#FAF9F6"
 PLOT_FONT = dict(color="#3D3B38", family="Noto Sans KR")
@@ -546,19 +573,20 @@ def get_daily(date_from, date_to, store_filter=None):
     return merged
 
 def apply_plotly_theme(fig):
-    """클로드 톤 plotly 테마 적용 + 한글 금액 축"""
+    """클로드 톤 plotly 테마 적용 + 한글 금액 축 (다크모드 자동 전환)"""
+    c = _theme_colors()
     fig.update_layout(
-        plot_bgcolor=PLOT_AREA,
-        paper_bgcolor=PLOT_BG,
-        font=PLOT_FONT,
+        plot_bgcolor=c["area"],
+        paper_bgcolor=c["bg"],
+        font=dict(color=c["text"], family="Noto Sans KR"),
         margin=dict(l=20, r=20, t=40, b=20),
         legend=dict(
             orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0,
-            font=dict(size=11, color="#8C8680"),
+            font=dict(size=11, color=c["muted"]),
             bgcolor="rgba(0,0,0,0)",
         ),
         xaxis=dict(
-            gridcolor=GRID_COLOR, showline=False,
+            gridcolor=c["grid"], showline=False, color=c["text"],
             tickformatstops=[
                 dict(dtickrange=[None, 86400000*7], value="%-m/%-d"),
                 dict(dtickrange=[86400000*7, 86400000*60], value="%-m월 %-d일"),
@@ -566,7 +594,7 @@ def apply_plotly_theme(fig):
                 dict(dtickrange=["M12", None], value="%Y년"),
             ],
         ),
-        yaxis=dict(gridcolor=GRID_COLOR, showline=False),
+        yaxis=dict(gridcolor=c["grid"], showline=False, color=c["text"]),
         hoverlabel=HOVER_STYLE,
     )
     # Y축 한글 금액 표기
