@@ -411,6 +411,26 @@ def delta_str(curr, prev):
     return f"{(curr - prev) / abs(prev) * 100:+.1f}%"
 
 
+def empty_state(msg, icon="📭"):
+    """빈 상태 안내"""
+    st.markdown(
+        f'<div class="empty-state"><div style="font-size:2.5rem;">{icon}</div>'
+        f'<div style="margin-top:8px;font-size:0.95rem;color:#3D3B38;">{msg}</div></div>',
+        unsafe_allow_html=True
+    )
+
+
+def download_csv_button(df, filename, label="📥 CSV 다운로드", key=None):
+    """데이터프레임 CSV 다운로드"""
+    if df is None or (hasattr(df, "empty") and df.empty):
+        return
+    csv = df.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
+    st.download_button(
+        label=label, data=csv, file_name=filename,
+        mime="text/csv", key=key, use_container_width=False,
+    )
+
+
 def _spark_svg(values, color="#D97757", width=140, height=28):
     """미니 스파크라인 SVG 생성"""
     if not values or len(values) < 2:
@@ -763,7 +783,9 @@ if page == "📊 대시보드":
         d_to = today
 
     chart_data = get_daily(d_from, d_to, sf)
-    if not chart_data.empty:
+    if chart_data.empty:
+        empty_state(f"{d_from} ~ {d_to} 기간 데이터가 없어요. 사이드바에서 '🔄 오늘 매출 갱신'을 눌러보세요.", icon="📊")
+    else:
         fig = make_subplots(specs=[[{"secondary_y": True}]])
         fig.add_trace(go.Bar(x=chart_data["날짜"], y=chart_data["매출"], name="매출",
                              marker_color="#D97757", opacity=0.8,
@@ -1032,6 +1054,7 @@ elif page == "📆 월별 분석":
         display_ch["객단가"] = display_ch["객단가"].apply(lambda x: f"₩{int(x):,}")
         display_ch["매출비중"] = display_ch["매출비중"].apply(lambda x: f"{x}%")
         st.dataframe(display_ch, width="stretch", hide_index=True)
+        download_csv_button(ch, f"스토어매출_{ch_from}_{ch_to}.csv", key="dl_store")
     with col_pie:
         if not ch.empty:
             colors = [STORE_COLORS.get(s, "#A8A29E") for s in ch["스토어"]]
@@ -1132,6 +1155,7 @@ elif page == "📆 월별 분석":
         display_ad["CTR"] = display_ad["CTR"].apply(lambda x: f"{x}%")
         display_ad["ROAS"] = display_ad["ROAS"].apply(lambda x: f"{x}%")
         st.dataframe(display_ad, width="stretch", hide_index=True)
+        download_csv_button(ad_ch, f"광고채널성과_{ch_from}_{ch_to}.csv", key="dl_ad_ch")
 
 
 # ══════════════════════════════════════════════
