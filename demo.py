@@ -435,10 +435,19 @@ _any_configured = any(
 )
 
 if _any_configured:
-    from api.db import load_sales, load_ads
+    from api.db import load_sales as _ls, load_ads as _la
+
+    @st.cache_data(ttl=300, show_spinner="데이터 불러오는 중...")
+    def _cached_sales(start, end):
+        return _ls(start, end)
+
+    @st.cache_data(ttl=300, show_spinner=False)
+    def _cached_ads(start, end):
+        return _la(start, end)
+
     _db_start = date(2020, 1, 1)
-    df_sales = load_sales(_db_start, date.today())
-    df_ads = load_ads(_db_start, date.today())
+    df_sales = _cached_sales(_db_start, date.today())
+    df_ads = _cached_ads(_db_start, date.today())
     _data_mode = "API"
 else:
     # 샘플 데이터 (generate_data 함수는 demo_backup.py에 있음)
