@@ -565,9 +565,9 @@ if page == "📊 대시보드":
         period_sel = st.selectbox("기간", list(period_options.keys()), index=2, key="dash_period")
     if period_sel == "직접 설정":
         with col_f:
-            d_from = st.date_input("시작", format="YYYY/MM/DD", today - timedelta(30), key="dash_from")
+            d_from = st.date_input("시작", today - timedelta(30), key="dash_from", format="YYYY/MM/DD")
         with col_t:
-            d_to = st.date_input("종료", format="YYYY/MM/DD", today, key="dash_to")
+            d_to = st.date_input("종료", today, key="dash_to", format="YYYY/MM/DD")
     else:
         d_from = today - timedelta(period_options[period_sel])
         d_to = today
@@ -621,9 +621,9 @@ elif page == "🏷️ 브랜드 분석":
     # 기간 선택
     col1, col2 = st.columns(2)
     with col1:
-        b_from = st.date_input("시작일", format="YYYY/MM/DD", date.today() - timedelta(30), key="brand_from")
+        b_from = st.date_input("시작일", date.today() - timedelta(30), key="brand_from", format="YYYY/MM/DD")
     with col2:
-        b_to = st.date_input("종료일", format="YYYY/MM/DD", date.today(), key="brand_to")
+        b_to = st.date_input("종료일", date.today(), key="brand_to", format="YYYY/MM/DD")
 
     # 브랜드별 매출 집계 (카페24=스토어명, 스마트스토어=아자차, 쿠팡=브랜드 컬럼)
     bs = df_sales[(df_sales["날짜"] >= b_from) & (df_sales["날짜"] <= b_to)].copy()
@@ -741,9 +741,9 @@ elif page == "📆 월별 분석":
         ch_period = st.selectbox("기간", list(period_map.keys()), index=2, key="month_period")
     if ch_period == "직접 설정":
         with col_f:
-            ch_from = st.date_input("시작", format="YYYY/MM/DD", today - timedelta(30), key="month_from")
+            ch_from = st.date_input("시작", today - timedelta(30), key="month_from", format="YYYY/MM/DD")
         with col_t:
-            ch_to = st.date_input("종료", format="YYYY/MM/DD", today, key="month_to")
+            ch_to = st.date_input("종료", today, key="month_to", format="YYYY/MM/DD")
     else:
         ch_from = today - timedelta(period_map[ch_period])
         ch_to = today
@@ -851,9 +851,9 @@ elif page == "🏪 채널 분석":
         ch_period = st.selectbox("기간", list(period_map.keys()), index=0, key="ch_period")
     if ch_period == "직접 설정":
         with col_f:
-            ch_from = st.date_input("시작", format="YYYY/MM/DD", today - timedelta(90), key="ch_from")
+            ch_from = st.date_input("시작", today - timedelta(90), key="ch_from", format="YYYY/MM/DD")
         with col_t:
-            ch_to = st.date_input("종료", format="YYYY/MM/DD", today, key="ch_to")
+            ch_to = st.date_input("종료", today, key="ch_to", format="YYYY/MM/DD")
     else:
         ch_from = today - timedelta(period_map[ch_period])
         ch_to = today
@@ -1148,7 +1148,7 @@ elif page == "⚙️ 설정":
             if _man_mode == "월별":
                 _man_period = st.text_input("월 (YYYY-MM)", value=date.today().strftime("%Y-%m"), key="man_period_m")
             else:
-                _man_period = st.date_input("날짜", format="YYYY/MM/DD", value=date.today(), key="man_period_d")
+                _man_period = st.date_input("날짜", value=date.today(), key="man_period_d", format="YYYY/MM/DD")
         with col2:
             _man_channel = st.text_input("광고 채널명", value="카페 광고", key="man_channel")
         with col3:
