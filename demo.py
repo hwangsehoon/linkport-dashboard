@@ -49,6 +49,9 @@ st.markdown("""
         font-weight: 700 !important;
     }
     /* 사이드바 메뉴 카드형 */
+    section[data-testid="stSidebar"] .stRadio {
+        padding: 0 8px !important;
+    }
     section[data-testid="stSidebar"] .stRadio > div {
         gap: 6px !important;
     }
