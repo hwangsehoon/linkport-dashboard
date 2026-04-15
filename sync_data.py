@@ -10,6 +10,17 @@ from api.db import get_missing_dates, mark_fetched, save_sales, save_ads
 from api.token_manager import check_and_refresh_all
 
 
+def _dates_to_fetch(service, start, end, force_recent_days=3):
+    """fetch_log에 있어도 최근 N일은 항상 재수집 (당일 부분 데이터 갱신용)"""
+    missing = set(get_missing_dates(service, start, end))
+    force_from = max(start, date.today() - timedelta(days=force_recent_days))
+    cur = force_from
+    while cur <= end:
+        missing.add(cur)
+        cur += timedelta(days=1)
+    return sorted(missing)
+
+
 def sync_recent(days=7):
     """최근 N일 데이터 동기화"""
     end = date.today()
@@ -20,7 +31,7 @@ def sync_recent(days=7):
 
     # 매출
     if is_configured("cafe24"):
-        missing = get_missing_dates("cafe24", start, end)
+        missing = _dates_to_fetch("cafe24", start, end)
         if missing:
             print(f"  카페24: {len(missing)}일 수집 중...")
             try:
@@ -34,7 +45,7 @@ def sync_recent(days=7):
                 print(f"  카페24 실패: {e}")
 
     if is_configured("smartstore"):
-        missing = get_missing_dates("smartstore", start, end)
+        missing = _dates_to_fetch("smartstore", start, end)
         if missing:
             print(f"  스마트스토어: {len(missing)}일 수집 중...")
             try:
@@ -48,7 +59,7 @@ def sync_recent(days=7):
                 print(f"  스마트스토어 실패: {e}")
 
     if is_configured("coupang"):
-        missing = get_missing_dates("coupang", start, end)
+        missing = _dates_to_fetch("coupang", start, end)
         if missing:
             print(f"  쿠팡: {len(missing)}일 수집 중...")
             try:
@@ -63,7 +74,7 @@ def sync_recent(days=7):
 
     # 광고
     if is_configured("meta"):
-        missing = get_missing_dates("meta", start, end)
+        missing = _dates_to_fetch("meta", start, end)
         if missing:
             print(f"  Meta 광고: {len(missing)}일 수집 중...")
             try:
@@ -77,7 +88,7 @@ def sync_recent(days=7):
                 print(f"  Meta 실패: {e}")
 
     if is_configured("naver_sa"):
-        missing = get_missing_dates("naver_sa", start, end)
+        missing = _dates_to_fetch("naver_sa", start, end)
         if missing:
             print(f"  네이버SA: {len(missing)}일 수집 중...")
             try:
