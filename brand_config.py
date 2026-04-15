@@ -4,7 +4,7 @@
 - 대시보드 설정 페이지에서 매핑 관리 가능
 """
 import os
-import sqlite3
+import db_compat as sqlite3
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "dashboard_data.db")
 
