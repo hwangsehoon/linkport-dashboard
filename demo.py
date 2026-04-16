@@ -6,8 +6,15 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, timezone
 import random
+
+# KST 기준 오늘 날짜 (Streamlit Cloud는 UTC)
+_KST = timezone(timedelta(hours=9))
+
+
+def _today_kst():
+    return datetime.now(_KST).date()
 import calendar
 import streamlit.components.v1 as components
 
@@ -446,8 +453,8 @@ if _any_configured:
         return _la(start, end)
 
     _db_start = date(2020, 1, 1)
-    df_sales = _cached_sales(_db_start, date.today())
-    df_ads = _cached_ads(_db_start, date.today())
+    df_sales = _cached_sales(_db_start, _today_kst())
+    df_ads = _cached_ads(_db_start, _today_kst())
     _data_mode = "API"
 else:
     # 샘플 데이터 (generate_data 함수는 demo_backup.py에 있음)
@@ -739,13 +746,13 @@ with st.sidebar:
 
     st.divider()
     if _data_mode == "API":
-        st.caption(f"LIVE · {date.today().strftime('%Y.%m.%d')}")
+        st.caption(f"LIVE · {_today_kst().strftime('%Y.%m.%d')}")
         if st.button("🔄 오늘 매출 갱신", use_container_width=True):
             with st.spinner("API에서 가져오는 중..."):
                 from datetime import date as _d
                 from api.token_manager import check_and_refresh_all as _rt
                 from api.db import save_sales as _ss, save_ads as _sa, mark_fetched as _mf
-                _today = _d.today()
+                _today = _today_kst()
                 _msgs = []
                 try:
                     _rt()
@@ -797,7 +804,7 @@ with st.sidebar:
 # PAGE 1: 대시보드
 # ══════════════════════════════════════════════
 if page == "📊 대시보드":
-    today = date.today()
+    today = _today_kst()
     yesterday = today - timedelta(days=1)
     weekday_kr = ["월", "화", "수", "목", "금", "토", "일"][today.weekday()]
 
@@ -993,9 +1000,9 @@ elif page == "🏷️ 브랜드 분석":
     # 기간 선택
     col1, col2 = st.columns(2)
     with col1:
-        b_from = st.date_input("시작일", date.today() - timedelta(30), key="brand_from", format="YYYY/MM/DD")
+        b_from = st.date_input("시작일", _today_kst() - timedelta(30), key="brand_from", format="YYYY/MM/DD")
     with col2:
-        b_to = st.date_input("종료일", date.today(), key="brand_to", format="YYYY/MM/DD")
+        b_to = st.date_input("종료일", _today_kst(), key="brand_to", format="YYYY/MM/DD")
 
     # 브랜드별 매출 집계 (카페24=스토어명, 스마트스토어=아자차, 쿠팡=브랜드 컬럼)
     bs = df_sales[(df_sales["날짜"] >= b_from) & (df_sales["날짜"] <= b_to)].copy()
@@ -1106,7 +1113,7 @@ elif page == "📆 월별 분석":
     </div>
     """, unsafe_allow_html=True)
 
-    today = date.today()
+    today = _today_kst()
     period_map = {"최근 7일": 7, "최근 14일": 14, "최근 30일": 30, "최근 90일": 90, "직접 설정": 0}
     col_p, col_f, col_t = st.columns([1, 1, 1])
     with col_p:
@@ -1287,7 +1294,7 @@ elif page == "🏪 채널 분석":
     </div>
     """, unsafe_allow_html=True)
 
-    today = date.today()
+    today = _today_kst()
     period_map = {"최근 3개월": 90, "최근 6개월": 180, "최근 1년": 365, "직접 설정": 0}
     col_p, col_f, col_t = st.columns([1, 1, 1])
     with col_p:
@@ -1604,9 +1611,9 @@ elif page == "⚙️ 설정":
         col1, col2, col3, col4, col5 = st.columns(5)
         with col1:
             if _man_mode == "월별":
-                _man_period = st.text_input("월 (YYYY-MM)", value=date.today().strftime("%Y-%m"), key="man_period_m")
+                _man_period = st.text_input("월 (YYYY-MM)", value=_today_kst().strftime("%Y-%m"), key="man_period_m")
             else:
-                _man_period = st.date_input("날짜", value=date.today(), key="man_period_d", format="YYYY/MM/DD")
+                _man_period = st.date_input("날짜", value=_today_kst(), key="man_period_d", format="YYYY/MM/DD")
         with col2:
             _man_channel = st.text_input("광고 채널명", value="카페 광고", key="man_channel")
         with col3:
