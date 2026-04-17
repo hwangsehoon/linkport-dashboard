@@ -1474,12 +1474,13 @@ elif page == "⚙️ 설정":
         uploaded_files = st.file_uploader("엑셀 선택 (여러 파일 가능)", type=["xlsx", "xls"], accept_multiple_files=True)
         if uploaded_files:
             from brand_config import detect_brand
-            total_saved = 0
+            # 모든 파일을 먼저 합산한 뒤 한 번에 저장 (파일 간 덮어쓰기 방지)
+            _combined = {}  # (date, brand) → {ad, imp, click, conv, conv_rev}
+            _file_msgs = []
             for uploaded_file in uploaded_files:
                 try:
                     udf = pd.read_excel(uploaded_file)
                     cols = list(udf.columns)
-                    # 형식 자동 인식
                     camp_col = '캠페인명' if '캠페인명' in cols else ('캠페인 이름' if '캠페인 이름' in cols else None)
                     cost_col = '광고비' if '광고비' in cols else ('집행 광고비' if '집행 광고비' in cols else None)
                     date_col = '날짜' if '날짜' in cols else cols[0]
@@ -1502,7 +1503,7 @@ elif page == "⚙️ 설정":
                         agg_dict[f"_{c}"] = "sum"
                     daily = udf.groupby([date_col, "_브랜드"]).agg(agg_dict).reset_index()
 
-                    _upload_conn = sqlite3.connect("dashboard_data.db")
+                    file_rows = 0
                     for _, row in daily.iterrows():
                         d = row[date_col]
                         ds = str(int(d)) if not isinstance(d, str) else str(d).strip()
@@ -1517,20 +1518,39 @@ elif page == "⚙️ 설정":
                         click = int(row[f"_{click_col}"]) if click_col else 0
                         conv = int(row[f"_{conv_col}"]) if conv_col else 0
                         conv_rev = int(row[f"_{conv_rev_col}"]) if conv_rev_col else 0
-                        _upload_conn.execute(
-                            """INSERT OR REPLACE INTO ads
-                               (날짜, 광고채널, 광고비, 노출수, 클릭수, 전환수, 전환매출, 브랜드)
-                               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                            (formatted_date, "쿠팡", ad, imp, click, conv, conv_rev, row["_브랜드"]),
-                        )
-                    _upload_conn.commit()
-                    _upload_conn.close()
-                    total_saved += len(daily)
-                    st.success(f"'{uploaded_file.name}' - {len(daily)}건 저장")
+                        key = (formatted_date, row["_브랜드"])
+                        e = _combined.setdefault(key, {"ad":0,"imp":0,"click":0,"conv":0,"conv_rev":0})
+                        e["ad"] += ad
+                        e["imp"] += imp
+                        e["click"] += click
+                        e["conv"] += conv
+                        e["conv_rev"] += conv_rev
+                        file_rows += 1
+                    _file_msgs.append((uploaded_file.name, file_rows, None))
                 except Exception as e:
-                    st.error(f"'{uploaded_file.name}' 처리 실패: {e}")
+                    _file_msgs.append((uploaded_file.name, 0, str(e)))
 
+            # 합산 결과를 한 번에 DB 저장
+            total_saved = 0
+            if _combined:
+                _upload_conn = sqlite3.connect("dashboard_data.db")
+                for (dt, brand), v in _combined.items():
+                    _upload_conn.execute(
+                        """INSERT OR REPLACE INTO ads
+                           (날짜, 광고채널, 광고비, 노출수, 클릭수, 전환수, 전환매출, 브랜드)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (dt, "쿠팡", v["ad"], v["imp"], v["click"], v["conv"], v["conv_rev"], brand),
+                    )
+                    total_saved += 1
+                _upload_conn.commit()
+                _upload_conn.close()
+            for fname, cnt, err in _file_msgs:
+                if err:
+                    st.error(f"'{fname}' 처리 실패: {err}")
+                else:
+                    st.success(f"'{fname}' - {cnt}건 처리")
             if total_saved > 0:
+                st.success(f"합산 저장 완료: {total_saved}건 (날짜/브랜드)")
                 if st.button("대시보드 새로고침", type="primary"):
                     st.cache_data.clear()
                     st.rerun()
