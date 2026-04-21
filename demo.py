@@ -923,8 +923,12 @@ if page == "📊 대시보드":
                                  line=dict(color="#7B8DBF", width=2), mode="lines+markers",
                                  marker=dict(size=4),
                                  hovertemplate="%{x|%Y.%m.%d}<br>ROAS: %{y:.1f}%<extra></extra>"), secondary_y=True)
+        fig.add_trace(go.Scatter(x=chart_data["날짜"], y=chart_data["B.ROAS"], name="B.ROAS",
+                                 line=dict(color="#4A8C5F", width=2, dash="dot"), mode="lines+markers",
+                                 marker=dict(size=4),
+                                 hovertemplate="%{x|%Y.%m.%d}<br>B.ROAS: %{y:.1f}%<extra></extra>"), secondary_y=True)
         fig.update_yaxes(title_text="금액 (원)", secondary_y=False, gridcolor=GRID_COLOR)
-        fig.update_yaxes(title_text="ROAS (%)", secondary_y=True, gridcolor=GRID_COLOR)
+        fig.update_yaxes(title_text="ROAS / B.ROAS (%)", secondary_y=True, gridcolor=GRID_COLOR)
         fig = apply_plotly_theme(fig)
         fig = apply_korean_yaxis(fig)
         fig.update_layout(barmode="group", height=380)
