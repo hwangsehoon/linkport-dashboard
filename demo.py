@@ -1665,13 +1665,40 @@ elif page == "⚙️ 설정":
                 st.rerun()
 
         _man_existing = pd.read_sql_query(
-            "SELECT 날짜, 광고채널, 브랜드, 광고비, 전환매출 FROM ads WHERE 광고채널 NOT IN ('Meta', 'Naver SA', '쿠팡 광고') ORDER BY 날짜 DESC",
+            "SELECT 날짜, 광고채널, 브랜드, 광고비, 전환매출 FROM ads WHERE 광고채널 NOT IN ('Meta', 'Naver SA', '쿠팡', '쿠팡 광고') ORDER BY 날짜 DESC",
             _man_conn,
         )
         if not _man_existing.empty:
             st.divider()
-            st.markdown("**입력된 기타 광고비**")
-            st.dataframe(_man_existing, width="stretch", hide_index=True)
+            st.markdown("**입력된 기타 광고비 (잘못 입력한 행은 선택 후 삭제)**")
+            _man_existing["_선택"] = False
+            _edited = st.data_editor(
+                _man_existing,
+                width="stretch", hide_index=True, key="man_delete_editor",
+                column_order=["_선택", "날짜", "광고채널", "브랜드", "광고비", "전환매출"],
+                column_config={
+                    "_선택": st.column_config.CheckboxColumn("삭제", default=False, width="small"),
+                    "광고비": st.column_config.NumberColumn("광고비", format="₩%d"),
+                    "전환매출": st.column_config.NumberColumn("전환매출", format="₩%d"),
+                },
+                disabled=["날짜", "광고채널", "브랜드", "광고비", "전환매출"],
+            )
+            to_delete = _edited[_edited["_선택"] == True]
+            if not to_delete.empty:
+                st.warning(f"삭제 대상 {len(to_delete)}건: " + ", ".join(
+                    f"{r['날짜']} {r['광고채널']}/{r['브랜드']} {int(r['광고비']):,}원"
+                    for _, r in to_delete.iterrows()
+                ))
+                if st.button("선택 행 삭제", type="secondary", key="del_manual"):
+                    for _, r in to_delete.iterrows():
+                        _man_conn.execute(
+                            "DELETE FROM ads WHERE 날짜=? AND 광고채널=? AND 브랜드=? AND 광고비=?",
+                            (str(r["날짜"]), r["광고채널"], r["브랜드"], int(r["광고비"])),
+                        )
+                    _man_conn.commit()
+                    st.success(f"{len(to_delete)}건 삭제 완료")
+                    st.cache_data.clear()
+                    st.rerun()
         _man_conn.close()
 
     with tab_target:
