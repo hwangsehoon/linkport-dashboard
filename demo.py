@@ -1665,7 +1665,7 @@ elif page == "⚙️ 설정":
                 st.rerun()
 
         _man_existing = pd.read_sql_query(
-            "SELECT 날짜, 광고채널, 브랜드, 광고비, 전환매출 FROM ads WHERE 광고채널 NOT IN ('Meta', 'Naver SA', '쿠팡', '쿠팡 광고') ORDER BY 날짜 DESC",
+            "SELECT 날짜, 광고채널, 브랜드, 광고비, 전환매출 FROM ads WHERE 광고채널 NOT IN ('Meta', 'Naver SA') ORDER BY 날짜 DESC",
             _man_conn,
         )
         if not _man_existing.empty:
