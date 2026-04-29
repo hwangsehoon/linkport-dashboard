@@ -747,18 +747,19 @@ with st.sidebar:
     st.divider()
     if _data_mode == "API":
         st.caption(f"LIVE · {_today_kst().strftime('%Y.%m.%d')}")
-        if st.button("🔄 오늘 매출 갱신", use_container_width=True):
-            with st.spinner("API에서 가져오는 중..."):
-                from datetime import date as _d
+        _refresh_days = st.number_input("갱신 기간(일)", min_value=1, max_value=30, value=7, step=1, key="refresh_days")
+        if st.button(f"🔄 최근 {_refresh_days}일 매출/광고 갱신", use_container_width=True):
+            with st.spinner(f"API에서 최근 {_refresh_days}일 가져오는 중..."):
                 from api.token_manager import check_and_refresh_all as _rt
                 from api.db import save_sales as _ss, save_ads as _sa, mark_fetched as _mf
                 _today = _today_kst()
+                _start = _today - timedelta(days=int(_refresh_days) - 1)
                 _msgs = []
                 try:
                     _rt()
                 except Exception as e:
                     _msgs.append(f"토큰: {e}")
-                # 매출 (오늘만)
+                # 매출
                 for _svc, _mod, _fn in [
                     ("cafe24","api.cafe24","fetch_all_cafe24"),
                     ("smartstore","api.smartstore","fetch_smartstore"),
@@ -767,15 +768,15 @@ with st.sidebar:
                     if not is_configured(_svc): continue
                     try:
                         _m = __import__(_mod, fromlist=[_fn])
-                        _df = getattr(_m, _fn)(_today, _today)
+                        _df = getattr(_m, _fn)(_start, _today)
                         if not _df.empty:
-                            _ss(_df); _mf(_svc, [_today])
-                            _msgs.append(f"{_svc}: {len(_df)}건")
+                            _ss(_df); _mf(_svc, _df["날짜"].unique().tolist())
+                            _msgs.append(f"✅ {_svc}: {len(_df)}건")
                         else:
-                            _msgs.append(f"{_svc}: 0건")
+                            _msgs.append(f"⚠ {_svc}: 0건")
                     except Exception as e:
-                        _msgs.append(f"{_svc}: 실패 {str(e)[:40]}")
-                # 광고 (오늘만)
+                        _msgs.append(f"❌ {_svc}: {str(e)[:60]}")
+                # 광고
                 for _svc, _mod, _fn in [
                     ("meta","api.meta_ads","fetch_meta_ads"),
                     ("naver_sa","api.naver_sa","fetch_naver_sa"),
@@ -783,18 +784,18 @@ with st.sidebar:
                     if not is_configured(_svc): continue
                     try:
                         _m = __import__(_mod, fromlist=[_fn])
-                        _df = getattr(_m, _fn)(_today, _today)
+                        _df = getattr(_m, _fn)(_start, _today)
                         if not _df.empty:
-                            _sa(_df); _mf(_svc, [_today])
-                            _msgs.append(f"{_svc}: {len(_df)}건")
+                            _sa(_df); _mf(_svc, _df["날짜"].unique().tolist())
+                            _msgs.append(f"✅ {_svc}: {len(_df)}건")
                         else:
-                            _msgs.append(f"{_svc}: 0건")
+                            _msgs.append(f"⚠ {_svc}: 0건")
                     except Exception as e:
-                        _msgs.append(f"{_svc}: 실패 {str(e)[:40]}")
+                        _msgs.append(f"❌ {_svc}: {str(e)[:60]}")
             for _m in _msgs:
                 st.caption(_m)
             st.cache_data.clear()
-            st.success("갱신 완료")
+            st.success(f"갱신 완료 ({_start} ~ {_today})")
             st.rerun()
     else:
         st.caption("DEMO MODE")
