@@ -4,6 +4,7 @@
 - 이미 저장된 날짜는 다시 조회하지 않음
 """
 import os
+import time
 import psycopg2
 import psycopg2.extras
 import pandas as pd
@@ -26,8 +27,17 @@ def _get_db_url():
 DB_URL = _get_db_url()
 
 
-def _get_conn():
-    return psycopg2.connect(DB_URL)
+def _get_conn(retries: int = 2, delay: float = 1.0):
+    """DB 연결. 일시적 연결 끊김(무료 tier hiccup·앱 깨어남)을 흡수하기 위해 재시도."""
+    last_err = None
+    for attempt in range(retries + 1):
+        try:
+            return psycopg2.connect(DB_URL, connect_timeout=10)
+        except psycopg2.OperationalError as e:
+            last_err = e
+            if attempt < retries:
+                time.sleep(delay)
+    raise last_err
 
 
 def init_db():

@@ -4,10 +4,31 @@
 - 대시보드와 별도로 실행 (스케줄러 또는 수동)
 - start.bat에서 대시보드 시작 전에 자동 실행
 """
+import os
+from pathlib import Path
 from datetime import date, timedelta
 from config import is_configured
 from api.db import get_missing_dates, mark_fetched, save_sales, save_ads
 from api.token_manager import check_and_refresh_all
+
+
+def _sync_coupang_ads(days):
+    """쿠팡 광고 크롤러 실행 (로컬·세션 있을 때만 — CI/세션없음은 자동 스킵)."""
+    if os.getenv("GITHUB_ACTIONS"):
+        return  # CI에는 브라우저/로그인 세션 없음
+    profile = Path(__file__).parent / "coupang_profile"
+    if not profile.exists():
+        print("  쿠팡 광고: 프로필 없음 — 스킵 (최초 1회 `python coupang_crawler.py`로 로그인)")
+        return
+    try:
+        from coupang_crawler import crawl, SessionExpired
+        print("  쿠팡 광고: 크롤러 실행 중...")
+        try:
+            crawl(days=min(days, 7), auto=True)  # 창 숨김, 만료 시 조용히 스킵
+        except SessionExpired as e:
+            print(f"  쿠팡 광고: {e}")
+    except Exception as e:
+        print(f"  쿠팡 광고 실패: {e}")
 
 
 def _dates_to_fetch(service, start, end, force_recent_days=3):
@@ -100,6 +121,9 @@ def sync_recent(days=7):
                     print(f"  네이버SA: {len(df)}건 저장")
             except Exception as e:
                 print(f"  네이버SA 실패: {e}")
+
+    # 쿠팡 광고 (브라우저 크롤러 — 로컬에서만 실행됨)
+    _sync_coupang_ads(days)
 
     print("동기화 완료!")
 

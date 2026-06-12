@@ -7,6 +7,10 @@ __pycache__/
 .env
 .tokens/
 *.key
+coupang_session.json
+coupang_profile/
+crawl.log
+coupang_error_*.png
 
 # 로컬 DB (Postgres로 이관)
 dashboard_data.db
@@ -17,6 +21,7 @@ dashboard_data.db
 !requirements.txt
 debug_*
 *_backup.py
+.playwright-mcp/
 
 # OS
 .DS_Store
