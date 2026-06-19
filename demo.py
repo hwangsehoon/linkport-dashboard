@@ -1157,14 +1157,27 @@ elif page == "🏷️ 브랜드 분석":
     _show = main_brands if _sel == "전체" else [_sel]
     _today = _today_kst()
     _PER = {"최근 7일": 7, "최근 14일": 14, "최근 30일": 30, "최근 90일": 90}
+    _POPTS = list(_PER) + ["직접 설정"]
+
+    def _chart_range(label, key):
+        """기간 라벨 → (시작, 종료). '직접 설정'이면 날짜 선택기를 보여줌."""
+        if label == "직접 설정":
+            _d1, _d2 = st.columns(2)
+            with _d1:
+                _s = st.date_input("시작", _today - timedelta(30), key=f"{key}_from", format="YYYY/MM/DD")
+            with _d2:
+                _e = st.date_input("종료", _today, key=f"{key}_to", format="YYYY/MM/DD")
+            return _s, _e
+        return _today - timedelta(_PER[label]), _today
 
     # 브랜드별 매출 추이 (차트 자체 기간 선택 — 위로 안 올라가도 됨)
     _ct1, _cp1 = st.columns([3, 1])
     with _ct1:
         st.markdown('<div class="section-title">브랜드별 매출 추이</div>', unsafe_allow_html=True)
     with _cp1:
-        _pm = st.selectbox("기간", list(_PER), index=2, key="trend_sales_per", label_visibility="collapsed")
-    _ds = df_sales[(df_sales["날짜"] >= _today - timedelta(_PER[_pm])) & (df_sales["날짜"] <= _today)].copy()
+        _pm = st.selectbox("기간", _POPTS, index=2, key="trend_sales_per", label_visibility="collapsed")
+    _sm, _em = _chart_range(_pm, "trend_sales")
+    _ds = df_sales[(df_sales["날짜"] >= _sm) & (df_sales["날짜"] <= _em)].copy()
     if not _ds.empty:
         _ds["_브랜드"] = _ds.apply(map_brand_sales, axis=1)
         daily_brand = _ds.groupby(["날짜", "_브랜드"]).agg({"매출": "sum"}).reset_index()
@@ -1188,8 +1201,9 @@ elif page == "🏷️ 브랜드 분석":
     with _ct2:
         st.markdown('<div class="section-title">브랜드별 광고비 추이</div>', unsafe_allow_html=True)
     with _cp2:
-        _pa = st.selectbox("기간", list(_PER), index=2, key="trend_ad_per", label_visibility="collapsed")
-    _da = df_ads[(df_ads["날짜"] >= _today - timedelta(_PER[_pa])) & (df_ads["날짜"] <= _today)].copy()
+        _pa = st.selectbox("기간", _POPTS, index=2, key="trend_ad_per", label_visibility="collapsed")
+    _sa2, _ea2 = _chart_range(_pa, "trend_ad")
+    _da = df_ads[(df_ads["날짜"] >= _sa2) & (df_ads["날짜"] <= _ea2)].copy()
     if not _da.empty:
         _da["_브랜드"] = (_da["브랜드"].fillna("기타").replace("", "기타")
                        if "브랜드" in _da.columns else "기타")
