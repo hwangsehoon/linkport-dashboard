@@ -1076,25 +1076,74 @@ elif page == "🏷️ 브랜드 분석":
     main_brands = ["아자차", "반드럽", "웰바이오젠"]
 
     st.markdown('<div class="section-title">브랜드별 성과 요약</div>', unsafe_allow_html=True)
-    brand_cols = st.columns(len(main_brands))
-    for i, brand in enumerate(main_brands):
+
+    # 전체 헤드라인 (선택 기간 합계)
+    _mb = brand_kpi[brand_kpi["_브랜드"].isin(main_brands)]
+    _ts = int(_mb["매출"].sum()); _ta = int(_mb["광고비"].sum()); _tv = int(_mb["전환매출"].sum())
+    _tr = (_tv / _ta * 100) if _ta else 0
+    st.markdown(f"""
+    <div style='margin:2px 0 18px;'>
+      <div style='font-size:2.2rem;font-weight:700;color:#2D2B28;line-height:1.1;'>₩{_ts:,}</div>
+      <div style='color:#8C8680;font-size:.9rem;'>선택 기간 매출 · 광고 ROAS {_tr:.0f}% · 광고비 ₩{_ta:,}</div>
+    </div>""", unsafe_allow_html=True)
+
+    # 브랜드별 일매출 (스파크라인용)
+    _bser = bs.groupby(["날짜", "_브랜드"])["매출"].sum().reset_index()
+
+    def _rgba(h, a):
+        h = h.lstrip("#")
+        return f"rgba({int(h[0:2],16)},{int(h[2:4],16)},{int(h[4:6],16)},{a})"
+
+    _alerts = []
+    for brand in main_brands:
         row = brand_kpi[brand_kpi["_브랜드"] == brand]
-        with brand_cols[i]:
-            color = BRAND_COLORS.get(brand, "#A8A29E")
-            st.markdown(f"""
-            <div style='background: #FFFFFF; border: 1px solid #E8E4DE; border-radius: 12px;
-                        padding: 20px; border-left: 4px solid {color};'>
-                <div style='font-size: 1.1rem; font-weight: 700; color: {color}; margin-bottom: 12px;'>{brand}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            if not row.empty:
-                r = row.iloc[0]
-                st.metric("매출", fmt(r["매출"]))
-                st.metric("광고비", fmt(r["광고비"]))
-                st.metric("ROAS", pct(r["ROAS"]))
-                st.metric("B.ROAS", pct(r["B.ROAS"]))
-            else:
-                st.caption("데이터 없음")
+        sale_v = int(row["매출"].iloc[0]) if not row.empty else 0
+        ad_v = int(row["광고비"].iloc[0]) if not row.empty else 0
+        roas_v = float(row["ROAS"].iloc[0]) if not row.empty else 0
+        broas_v = float(row["B.ROAS"].iloc[0]) if not row.empty else 0
+        color = BRAND_COLORS.get(brand, "#A8A29E")
+        low = 0 < roas_v < 200
+        if low:
+            _alerts.append(f"{brand} · ROAS {roas_v:.0f}%")
+        c1, c2, c3, c4, c5 = st.columns([2.0, 1.9, 1.35, 1.35, 2.2])
+        with c1:
+            st.markdown(f"<div style='padding-top:10px;font-size:1.05rem;font-weight:600;color:#2D2B28;'>"
+                        f"<span style='color:{color}'>●</span> {brand}</div>", unsafe_allow_html=True)
+        with c2:
+            st.markdown(f"<div style='padding-top:8px;'><span style='color:#8C8680;font-size:.8rem;'>매출 </span>"
+                        f"<span style='font-size:1.05rem;font-weight:600;'>₩{sale_v:,}</span></div>",
+                        unsafe_allow_html=True)
+        with c3:
+            rtxt = f"{roas_v:.0f}%" if ad_v else "—"
+            rcol = "#B1442F" if low else "#2D2B28"
+            st.markdown(f"<div style='padding-top:8px;'><span style='color:#8C8680;font-size:.8rem;'>ROAS </span>"
+                        f"<span style='font-size:1.05rem;font-weight:600;color:{rcol};'>{rtxt}</span></div>",
+                        unsafe_allow_html=True)
+        with c4:
+            btxt = f"{broas_v:.0f}%" if ad_v else "—"
+            st.markdown(f"<div style='padding-top:8px;'><span style='color:#8C8680;font-size:.8rem;'>B.ROAS </span>"
+                        f"<span style='font-size:1.05rem;font-weight:600;color:#2D2B28;'>{btxt}</span></div>",
+                        unsafe_allow_html=True)
+        with c5:
+            sd = _bser[_bser["_브랜드"] == brand].sort_values("날짜")
+            if not sd.empty:
+                _sf = go.Figure(go.Scatter(y=sd["매출"].tolist(), mode="lines",
+                                           line=dict(color=color, width=2), fill="tozeroy",
+                                           fillcolor=_rgba(color, 0.13)))
+                _sf.update_layout(height=44, margin=dict(l=0, r=0, t=0, b=0),
+                                  paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                                  xaxis=dict(visible=False), yaxis=dict(visible=False))
+                st.plotly_chart(_sf, use_container_width=True, config={"displayModeBar": False})
+        st.markdown("<hr style='margin:2px 0;border:none;border-top:1px solid #ECECEC;'>",
+                    unsafe_allow_html=True)
+
+    if _alerts:
+        _items = "".join([f"<li style='margin:4px 0;'>{a}</li>" for a in _alerts])
+        st.markdown(f"""<div style='background:#FBEEEC;border-radius:10px;padding:14px 18px;margin-top:8px;'>
+        <b style='color:#B1442F;'>⚠ 확인 필요</b>
+        <ul style='margin:6px 0 0;color:#6B3F37;'>{_items}</ul></div>""", unsafe_allow_html=True)
+    else:
+        st.markdown("<div style='color:#2F7D4A;margin-top:8px;'>✓ 모든 브랜드 정상</div>", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
