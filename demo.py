@@ -876,30 +876,16 @@ if page == "📊 대시보드":
     t_broas = t_rev / max(1, t_ad) * 100
     y_broas = y_rev / max(1, y_ad) * 100
 
-    # 헤드라인 — 오늘 매출 (큰 숫자 + 맥락 + 7일 추세선)
-    _spark_data = get_daily(today - timedelta(6), today, sf)
-    spark_rev = _spark_data["매출"].tolist() if not _spark_data.empty else []
-    spark_days = [f"{d.month}/{d.day}" for d in _spark_data["날짜"]] if not _spark_data.empty else []
+    # 헤드라인 — 오늘 매출 (큰 숫자 + 맥락, 압축)
     _drev = (t_rev - y_rev) / y_rev * 100 if y_rev else 0
     _rsig = "#2F7D4A" if t_roas >= 300 else ("#9A7B1F" if t_roas >= 150 else ("#B1442F" if t_roas > 0 else "#8C8680"))
     st.markdown(f"""
-    <div style='display:flex;align-items:baseline;gap:18px;margin:2px 0;'>
-      <div style='font-size:2.6rem;font-weight:700;color:#2D2B28;line-height:1.1;'>{fmt_full(int(t_rev))}</div>
+    <div style='display:flex;align-items:baseline;gap:16px;margin:0;'>
+      <div style='font-size:2.3rem;font-weight:700;color:#2D2B28;line-height:1.1;'>{fmt_full(int(t_rev))}</div>
       <div style='font-size:1rem;color:{"#2F7D4A" if _drev>=0 else "#B1442F"};'>전일 {_drev:+.0f}%</div>
     </div>
-    <div style='color:#8C8680;font-size:.92rem;'>광고 ROAS <b style='color:{_rsig}'>{t_roas:.0f}%</b> · 광고비 {fmt_full(int(t_ad))} · 주문 {int(t_orders)}건 · 객단가 {fmt_full(int(t_aov))}</div>
+    <div style='color:#8C8680;font-size:.9rem;margin-bottom:18px;'>광고 ROAS <b style='color:{_rsig}'>{t_roas:.0f}%</b> · 광고비 {fmt_full(int(t_ad))} · 주문 {int(t_orders)}건 · 객단가 {fmt_full(int(t_aov))}</div>
     """, unsafe_allow_html=True)
-    if spark_rev:
-        _hf = go.Figure(go.Scatter(x=spark_days, y=spark_rev, mode="lines",
-                                   line=dict(color="#D97757", width=2),
-                                   hovertemplate="%{x}<br>매출 %{y:,.0f}원<extra></extra>"))
-        _hf.update_layout(height=70, margin=dict(l=0, r=0, t=8, b=0),
-                          paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                          xaxis=dict(visible=False), yaxis=dict(visible=False))
-        st.plotly_chart(_hf, use_container_width=True)
-        st.caption("최근 7일 매출 추세")
-
-    st.markdown("<br>", unsafe_allow_html=True)
 
     # 월 목표 달성
     _month_key = today.strftime("%Y-%m")
@@ -931,7 +917,7 @@ if page == "📊 대시보드":
       <div style='background:#D97757;height:10px;width:{min(achieve,100):.0f}%;'></div>
     </div>""", unsafe_allow_html=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
 
     # 매출/광고비 추이 — 보고 싶은 지표만 선 하나씩 (깔끔)
     st.markdown('<div class="section-title">매출 / 광고비 추이</div>', unsafe_allow_html=True)
@@ -963,6 +949,9 @@ if page == "📊 대시보드":
     if chart_data.empty:
         empty_state(f"{d_from} ~ {d_to} 기간 데이터가 없어요. 사이드바에서 '🔄 오늘 매출 갱신'을 눌러보세요.", icon="📊")
     else:
+        _won = [m for m in _sel if m in ("매출", "광고비")]
+        _pct = [m for m in _sel if m in ("ROAS", "B.ROAS")]
+        _mixed = bool(_won) and bool(_pct)  # 금액+%가 섞일 때만 오른쪽 보조축 사용
         fig = make_subplots(specs=[[{"secondary_y": True}]])
         for _mt in _sel:
             _ispct = _mt in ("ROAS", "B.ROAS")
@@ -970,8 +959,8 @@ if page == "📊 대시보드":
             fig.add_trace(go.Scatter(x=chart_data["날짜"], y=chart_data[_mt], name=_mt, mode="lines",
                                      line=dict(color=_TCOL[_mt], width=2.5),
                                      hovertemplate="%{x|%Y년 %-m월 %-d일}<br>" + _mt + ": %{y:,.0f}" + _suf + "<extra></extra>"),
-                          secondary_y=_ispct)
-        fig.update_layout(height=340, margin=dict(l=10, r=10, t=10, b=10),
+                          secondary_y=(_mixed and _ispct))
+        fig.update_layout(height=260, margin=dict(l=10, r=10, t=10, b=10),
                           paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
                           showlegend=len(_sel) > 1, legend=dict(orientation="h", y=1.1, x=0),
                           xaxis=dict(showgrid=False, tickformatstops=[
