@@ -1330,7 +1330,7 @@ elif page == "🏪 채널 분석":
                 pull=[0.02] * 10,
             )])
             fig = apply_plotly_theme(fig)
-            fig.update_layout(height=380, showlegend=False, margin=dict(l=40, r=40, t=30, b=30))
+            fig.update_layout(height=361, showlegend=False, margin=dict(l=55, r=55, t=40, b=40))
             st.plotly_chart(fig, use_container_width=True)
     with col_tbl:
         if not store_summary.empty:
