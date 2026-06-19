@@ -876,27 +876,28 @@ if page == "📊 대시보드":
     t_broas = t_rev / max(1, t_ad) * 100
     y_broas = y_rev / max(1, y_ad) * 100
 
-    # KPI 카드 (스파크라인 7일치 데이터)
-    st.markdown('<div class="section-title">오늘 매출 현황</div>', unsafe_allow_html=True)
+    # 헤드라인 — 오늘 매출 (큰 숫자 + 맥락 + 7일 추세선)
     _spark_data = get_daily(today - timedelta(6), today, sf)
     spark_rev = _spark_data["매출"].tolist() if not _spark_data.empty else []
-    spark_ord = _spark_data["주문건수"].tolist() if not _spark_data.empty else []
-    spark_aov = (_spark_data["매출"] / _spark_data["주문건수"].replace(0, 1)).astype(int).tolist() if not _spark_data.empty else []
-    spark_ad = _spark_data["광고비"].tolist() if not _spark_data.empty else []
-    spark_roas = (_spark_data["전환매출"] / _spark_data["광고비"].replace(0, 1) * 100).round(1).tolist() if not _spark_data.empty else []
-    spark_broas = (_spark_data["매출"] / _spark_data["광고비"].replace(0, 1) * 100).round(1).tolist() if not _spark_data.empty else []
-
-    def _d(c, p):
-        if p == 0: return None
-        return (c - p) / abs(p) * 100
-
-    c1, c2, c3, c4, c5, c6 = st.columns(6)
-    with c1: kpi_card("매출", fmt(t_rev), _d(t_rev, y_rev), spark=spark_rev)
-    with c2: kpi_card("주문건수", f"{t_orders}건", _d(t_orders, y_orders), spark=spark_ord, spark_color="#7B8DBF")
-    with c3: kpi_card("객단가", fmt(t_aov), _d(t_aov, y_aov), spark=spark_aov, spark_color="#A88B6E")
-    with c4: kpi_card("광고비", fmt(t_ad), _d(t_ad, y_ad), spark=spark_ad, invert_delta=True, spark_color="#B8B2AA")
-    with c5: kpi_card("ROAS", pct(t_roas), _d(t_roas, y_roas), spark=spark_roas, spark_color="#4A8C5F")
-    with c6: kpi_card("B.ROAS", pct(t_broas), _d(t_broas, y_broas), spark=spark_broas, spark_color="#4A8C5F")
+    spark_days = [f"{d.month}/{d.day}" for d in _spark_data["날짜"]] if not _spark_data.empty else []
+    _drev = (t_rev - y_rev) / y_rev * 100 if y_rev else 0
+    _rsig = "#2F7D4A" if t_roas >= 300 else ("#9A7B1F" if t_roas >= 150 else ("#B1442F" if t_roas > 0 else "#8C8680"))
+    st.markdown(f"""
+    <div style='display:flex;align-items:baseline;gap:18px;margin:2px 0;'>
+      <div style='font-size:2.6rem;font-weight:700;color:#2D2B28;line-height:1.1;'>{fmt_full(int(t_rev))}</div>
+      <div style='font-size:1rem;color:{"#2F7D4A" if _drev>=0 else "#B1442F"};'>전일 {_drev:+.0f}%</div>
+    </div>
+    <div style='color:#8C8680;font-size:.92rem;'>광고 ROAS <b style='color:{_rsig}'>{t_roas:.0f}%</b> · 광고비 {fmt_full(int(t_ad))} · 주문 {int(t_orders)}건 · 객단가 {fmt_full(int(t_aov))}</div>
+    """, unsafe_allow_html=True)
+    if spark_rev:
+        _hf = go.Figure(go.Scatter(x=spark_days, y=spark_rev, mode="lines",
+                                   line=dict(color="#D97757", width=2),
+                                   hovertemplate="%{x}<br>매출 %{y:,.0f}원<extra></extra>"))
+        _hf.update_layout(height=70, margin=dict(l=0, r=0, t=8, b=0),
+                          paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                          xaxis=dict(visible=False), yaxis=dict(visible=False))
+        st.plotly_chart(_hf, use_container_width=True)
+        st.caption("최근 7일 매출 추세")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -918,75 +919,93 @@ if page == "📊 대시보드":
     remaining = month_days - today.day
     daily_needed = (target - m_rev) / remaining if remaining > 0 else 0
 
-    st.markdown(f'<div class="section-title">{_month_label} 목표 달성</div>', unsafe_allow_html=True)
-    m0, m1, m2, m3, m4 = st.columns(5)
-    with m0: kpi_card("달성률", pct(achieve), target_pct=achieve)
-    with m1: kpi_card("누적 매출", fmt(m_rev), target_pct=achieve)
-    with m2: kpi_card("남은 일수", f"{remaining}일")
-    with m3: kpi_card("일평균 필요매출", fmt(int(daily_needed)))
-    _cur_avg = m_rev / max(1, today.day)
-    _pace_pos = _cur_avg >= daily_needed
-    pace = "순조" if _pace_pos else "부족"
-    pace_value = f'<span style="color:{"#4A8C5F" if _pace_pos else "#C4694D"}">{pace}</span> · {fmt(int(_cur_avg))}'
-    with m4: kpi_card("진행 상태", pace_value)
+    st.markdown(f'<div class="section-title">{_month_label} 목표</div>', unsafe_allow_html=True)
+    _pace_pos = (m_rev / max(1, today.day)) >= daily_needed
+    st.markdown(f"""
+    <div style='display:flex;align-items:baseline;gap:14px;'>
+      <div style='font-size:1.7rem;font-weight:700;color:#2D2B28;'>{achieve:.0f}%</div>
+      <div style='color:#8C8680;'>{fmt_full(int(m_rev))} / {fmt_full(int(target))}</div>
+      <div style='margin-left:auto;color:{"#2F7D4A" if _pace_pos else "#B1442F"};font-weight:600;'>페이스 {"순조" if _pace_pos else "부족"} · 남은 {remaining}일</div>
+    </div>
+    <div style='background:#ECE8E1;border-radius:6px;height:10px;margin-top:8px;overflow:hidden;'>
+      <div style='background:#D97757;height:10px;width:{min(achieve,100):.0f}%;'></div>
+    </div>""", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # 매출/광고비 추이
+    # 매출/광고비 추이 — 보고 싶은 지표만 선 하나씩 (깔끔)
     st.markdown('<div class="section-title">매출 / 광고비 추이</div>', unsafe_allow_html=True)
+    _TCOL = {"매출": "#D97757", "광고비": "#8C8680", "ROAS": "#7B8DBF", "B.ROAS": "#4A8C5F"}
     period_options = {"최근 7일": 7, "최근 14일": 14, "최근 30일": 30, "최근 90일": 90, "직접 설정": 0}
-    col_p, col_f, col_t = st.columns([1, 1, 1])
-    with col_p:
-        period_sel = st.selectbox("기간", list(period_options.keys()), index=2, key="dash_period")
+    _cw = st.columns([0.7, 0.7, 0.9, 0.8, 0.9, 1.6])
+    _all = _cw[0].checkbox("전체", key="dash_all")
+    _r = _cw[1].checkbox("매출", value=True, key="dash_c_rev")
+    _a = _cw[2].checkbox("광고비", key="dash_c_ad")
+    _o = _cw[3].checkbox("ROAS", key="dash_c_roas")
+    _b = _cw[4].checkbox("B.ROAS", key="dash_c_broas")
+    with _cw[5]:
+        period_sel = st.selectbox("기간", list(period_options.keys()), index=2, key="dash_period", label_visibility="collapsed")
     if period_sel == "직접 설정":
-        with col_f:
+        _f1, _f2 = st.columns(2)
+        with _f1:
             d_from = st.date_input("시작", today - timedelta(30), key="dash_from", format="YYYY/MM/DD")
-        with col_t:
+        with _f2:
             d_to = st.date_input("종료", today, key="dash_to", format="YYYY/MM/DD")
     else:
         d_from = today - timedelta(period_options[period_sel])
         d_to = today
+    _sel = ["매출", "광고비", "ROAS", "B.ROAS"] if _all else [m for m, on in
+            [("매출", _r), ("광고비", _a), ("ROAS", _o), ("B.ROAS", _b)] if on]
+    if not _sel:
+        _sel = ["매출"]
 
     chart_data = get_daily(d_from, d_to, sf)
     if chart_data.empty:
         empty_state(f"{d_from} ~ {d_to} 기간 데이터가 없어요. 사이드바에서 '🔄 오늘 매출 갱신'을 눌러보세요.", icon="📊")
     else:
         fig = make_subplots(specs=[[{"secondary_y": True}]])
-        fig.add_trace(go.Bar(x=chart_data["날짜"], y=chart_data["매출"], name="매출",
-                             marker_color="#D97757", opacity=0.8,
-                             hovertemplate="%{x|%Y년 %-m월 %-d일}<br>매출: %{y:,.0f}원<extra></extra>"), secondary_y=False)
-        fig.add_trace(go.Bar(x=chart_data["날짜"], y=chart_data["광고비"], name="광고비",
-                             marker_color="#B8B2AA", opacity=0.6,
-                             hovertemplate="%{x|%Y년 %-m월 %-d일}<br>광고비: %{y:,.0f}원<extra></extra>"), secondary_y=False)
-        fig.add_trace(go.Scatter(x=chart_data["날짜"], y=chart_data["ROAS"], name="ROAS",
-                                 line=dict(color="#7B8DBF", width=2), mode="lines+markers",
-                                 marker=dict(size=4),
-                                 hovertemplate="%{x|%Y년 %-m월 %-d일}<br>ROAS: %{y:.1f}%<extra></extra>"), secondary_y=True)
-        fig.add_trace(go.Scatter(x=chart_data["날짜"], y=chart_data["B.ROAS"], name="B.ROAS",
-                                 line=dict(color="#4A8C5F", width=2, dash="dot"), mode="lines+markers",
-                                 marker=dict(size=4),
-                                 hovertemplate="%{x|%Y년 %-m월 %-d일}<br>B.ROAS: %{y:.1f}%<extra></extra>"), secondary_y=True)
-        fig.update_yaxes(title_text="금액 (원)", secondary_y=False, gridcolor=GRID_COLOR)
-        fig.update_yaxes(title_text="ROAS / B.ROAS (%)", secondary_y=True, gridcolor=GRID_COLOR)
-        fig = apply_plotly_theme(fig)
-        fig = apply_korean_yaxis(fig)
-        fig.update_layout(barmode="group", height=380)
+        for _mt in _sel:
+            _ispct = _mt in ("ROAS", "B.ROAS")
+            _suf = "%" if _ispct else "원"
+            fig.add_trace(go.Scatter(x=chart_data["날짜"], y=chart_data[_mt], name=_mt, mode="lines",
+                                     line=dict(color=_TCOL[_mt], width=2.5),
+                                     hovertemplate="%{x|%Y년 %-m월 %-d일}<br>" + _mt + ": %{y:,.0f}" + _suf + "<extra></extra>"),
+                          secondary_y=_ispct)
+        fig.update_layout(height=340, margin=dict(l=10, r=10, t=10, b=10),
+                          paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                          showlegend=len(_sel) > 1, legend=dict(orientation="h", y=1.1, x=0),
+                          xaxis=dict(showgrid=False, tickformatstops=[
+                              dict(dtickrange=[None, 86400000 * 7], value="%-m월 %-d일"),
+                              dict(dtickrange=[86400000 * 7, 86400000 * 60], value="%-m월 %-d일"),
+                              dict(dtickrange=[86400000 * 60, "M12"], value="%Y년 %-m월"),
+                              dict(dtickrange=["M12", None], value="%Y년"),
+                          ]),
+                          yaxis=dict(gridcolor="#ECE8E1", zeroline=False),
+                          yaxis2=dict(showgrid=False, zeroline=False))
         st.plotly_chart(fig, use_container_width=True)
 
-    # 스토어별 오늘 매출
+    # 스토어별 오늘 매출 (깔끔한 행)
     st.markdown('<div class="section-title">스토어별 오늘 매출</div>', unsafe_allow_html=True)
-    t_st = t_s.groupby("스토어").agg({"매출": "sum", "주문건수": "sum"}).reset_index()
-    y_st = y_s.groupby("스토어").agg({"매출": "sum"}).reset_index().rename(columns={"매출": "전일"})
-    t_st = t_st.merge(y_st, on="스토어", how="left").fillna(0)
-    t_st["전일대비"] = ((t_st["매출"] - t_st["전일"]) / t_st["전일"].replace(0, 1) * 100).round(1)
-    t_st["객단가"] = (t_st["매출"] / t_st["주문건수"].replace(0, 1)).astype(int)
-
-    if len(t_st) > 0:
-        cols = st.columns(min(len(t_st), 5))
-        for i, (_, row) in enumerate(t_st.iterrows()):
-            with cols[i % 5]:
-                st.metric(row["스토어"], fmt_full(int(row["매출"])), f"{row['전일대비']:+.1f}%")
-                st.caption(f"주문 {int(row['주문건수'])}건 · 객단가 {fmt(int(row['객단가']))}")
+    _tst = t_s.groupby("스토어")["매출"].sum().sort_values(ascending=False)
+    _yst = y_s.groupby("스토어")["매출"].sum()
+    _shown = False
+    for _store, _rev in _tst.items():
+        if _rev <= 0:
+            continue
+        _shown = True
+        _yv = int(_yst.get(_store, 0))
+        _dd = (_rev - _yv) / _yv * 100 if _yv else 0
+        _r1, _r2, _r3 = st.columns([3, 2, 2])
+        with _r1:
+            st.markdown(f"<div style='padding-top:6px;font-weight:600;color:#2D2B28;'>{_store}</div>", unsafe_allow_html=True)
+        with _r2:
+            st.markdown(f"<div style='padding-top:6px;font-weight:600;'>{fmt_full(int(_rev))}</div>", unsafe_allow_html=True)
+        with _r3:
+            st.markdown(f"<div style='padding-top:6px;color:{'#2F7D4A' if _dd>=0 else '#B1442F'};'>전일 {_dd:+.0f}%</div>",
+                        unsafe_allow_html=True)
+        st.markdown("<hr style='margin:2px 0;border:none;border-top:1px solid #ECECEC;'>", unsafe_allow_html=True)
+    if not _shown:
+        st.caption("오늘 매출 데이터가 아직 없어요.")
 
     # 매출 캘린더 히트맵 (최근 12주 = 잔디 스타일)
     st.markdown('<div class="section-title">매출 캘린더 (최근 12주)</div>', unsafe_allow_html=True)
