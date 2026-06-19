@@ -28,6 +28,31 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# 날짜 선택 달력 팝업을 한글로 (월·요일 이름). Streamlit 기본은 브라우저 언어를 따르므로 JS로 번역.
+components.html("""
+<script>
+const M={January:'1월',February:'2월',March:'3월',April:'4월',May:'5월',June:'6월',
+July:'7월',August:'8월',September:'9월',October:'10월',November:'11월',December:'12월'};
+const W={Su:'일',Mo:'월',Tu:'화',We:'수',Th:'목',Fr:'금',Sa:'토'};
+function tr(){
+  try{
+    const doc=window.parent.document;
+    const cal=doc.querySelector('[data-baseweb="calendar"], [aria-label="Calendar."]');
+    if(!cal) return;
+    const w=doc.createTreeWalker(cal, NodeFilter.SHOW_TEXT);
+    let n;
+    while(n=w.nextNode()){
+      const t=(n.nodeValue||'').trim();
+      if(M[t]) n.nodeValue=M[t];
+      else if(W[t]) n.nodeValue=W[t];
+    }
+  }catch(e){}
+}
+new MutationObserver(tr).observe(window.parent.document.body,{childList:true,subtree:true});
+setInterval(tr,250);
+</script>
+""", height=0)
+
 # ══════════════════════════════════════════════
 # CSS - Claude Design Tone
 # ══════════════════════════════════════════════
