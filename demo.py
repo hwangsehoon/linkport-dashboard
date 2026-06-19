@@ -749,7 +749,7 @@ with st.sidebar:
 
     page = st.radio(
         "메뉴",
-        ["📊 대시보드", "🏷️ 브랜드 분석", "📆 월별 분석", "🏪 채널 분석", "⚙️ 설정"],
+        ["📊 대시보드", "🏷️ 브랜드 분석", "🏪 채널 분석", "⚙️ 설정"],
         label_visibility="collapsed",
     )
 
@@ -973,69 +973,99 @@ if page == "📊 대시보드":
                           yaxis2=dict(showgrid=False, zeroline=False))
         st.plotly_chart(fig, use_container_width=True)
 
-    # 스토어별 오늘 매출 (깔끔한 행)
-    st.markdown('<div class="section-title">스토어별 오늘 매출</div>', unsafe_allow_html=True)
-    _tst = t_s.groupby("스토어")["매출"].sum().sort_values(ascending=False)
-    _yst = y_s.groupby("스토어")["매출"].sum()
-    _shown = False
-    for _store, _rev in _tst.items():
-        if _rev <= 0:
-            continue
-        _shown = True
-        _yv = int(_yst.get(_store, 0))
-        _dd = (_rev - _yv) / _yv * 100 if _yv else 0
-        _r1, _r2, _r3 = st.columns([3, 2, 2])
-        with _r1:
-            st.markdown(f"<div style='padding-top:6px;font-weight:600;color:#2D2B28;'>{_store}</div>", unsafe_allow_html=True)
-        with _r2:
-            st.markdown(f"<div style='padding-top:6px;font-weight:600;'>{fmt_full(int(_rev))}</div>", unsafe_allow_html=True)
-        with _r3:
-            st.markdown(f"<div style='padding-top:6px;color:{'#2F7D4A' if _dd>=0 else '#B1442F'};'>전일 {_dd:+.0f}%</div>",
-                        unsafe_allow_html=True)
-        st.markdown("<hr style='margin:2px 0;border:none;border-top:1px solid #ECECEC;'>", unsafe_allow_html=True)
-    if not _shown:
-        st.caption("오늘 매출 데이터가 아직 없어요.")
+    # 스토어별 매출 (위 추이의 선택 기간 기준) — 표 + 파이
+    st.markdown('<div class="section-title">스토어별 매출</div>', unsafe_allow_html=True)
+    ds = df_sales[(df_sales["날짜"] >= d_from) & (df_sales["날짜"] <= d_to)]
+    if sf != "전체":
+        ds = ds[ds["스토어"].isin(sf)]
+    ch = ds.groupby("스토어").agg({"매출": "sum", "주문건수": "sum"}).reset_index()
+    ch = ch[ch["매출"] > 0].sort_values("매출", ascending=False)
+    ch["객단가"] = (ch["매출"] / ch["주문건수"].replace(0, 1)).astype(int)
+    ch["매출비중"] = (ch["매출"] / max(1, ch["매출"].sum()) * 100).round(1)
+    if not ch.empty:
+        col_tbl, col_pie = st.columns([2, 1])
+        with col_tbl:
+            display_ch = ch.copy()
+            display_ch["매출"] = display_ch["매출"].apply(lambda x: f"₩{int(x):,}")
+            display_ch["객단가"] = display_ch["객단가"].apply(lambda x: f"₩{int(x):,}")
+            display_ch["매출비중"] = display_ch["매출비중"].apply(lambda x: f"{x}%")
+            st.dataframe(display_ch, width="stretch", hide_index=True)
+            download_csv_button(ch, f"스토어매출_{d_from}_{d_to}.csv", key="dash_dl_store")
+        with col_pie:
+            colors = [STORE_COLORS.get(s, "#A8A29E") for s in ch["스토어"]]
+            fig_pie = go.Figure(data=[go.Pie(
+                labels=ch["스토어"], values=ch["매출"],
+                marker=dict(colors=colors), hole=0.4,
+                textinfo="label+percent",
+                hovertemplate="%{label}<br>매출 ₩%{value:,.0f} · %{percent}<extra></extra>",
+                textfont=dict(size=12, color="#3D3B38"),
+                textposition="outside", pull=[0.02] * 10,
+            )])
+            fig_pie = apply_plotly_theme(fig_pie)
+            fig_pie.update_layout(height=300, showlegend=False, margin=dict(l=40, r=40, t=30, b=30))
+            st.plotly_chart(fig_pie, use_container_width=True)
 
-    # 매출 캘린더 히트맵 (최근 12주 = 잔디 스타일)
-    st.markdown('<div class="section-title">매출 캘린더 (최근 12주)</div>', unsafe_allow_html=True)
-    _cal_end = today
-    _cal_start = today - timedelta(weeks=12)
-    _cal_data = get_daily(_cal_start, _cal_end, sf)
-    if not _cal_data.empty:
-        _cal_data = _cal_data.set_index("날짜")
-        # 12주 x 7일 grid
-        import numpy as np
-        _all_dates = pd.date_range(_cal_start, _cal_end)
-        _values = []
-        _texts = []
-        _xs = []
-        _ys = []
-        WEEKDAYS = ["월","화","수","목","금","토","일"]
-        for d in _all_dates:
-            dd = d.date()
-            v = float(_cal_data.loc[dd, "매출"]) if dd in _cal_data.index else 0
-            wk = (dd - _cal_start).days // 7
-            wd = d.weekday()
-            _xs.append(wk)
-            _ys.append(6 - wd)  # 월요일 위로
-            _values.append(v)
-            _texts.append(f"{fmt_date(dd)} ({WEEKDAYS[wd]})<br>매출 {fmt_full(int(v))}")
-        _vmax = max(_values) if _values else 1
-        fig_cal = go.Figure(data=[go.Heatmap(
-            x=_xs, y=_ys, z=_values, text=_texts, hoverinfo="text",
-            colorscale=[[0,"#F4F1EC"],[0.25,"#F0CBB8"],[0.5,"#E89373"],[1,"#D97757"]],
-            zmin=0, zmax=_vmax,
-            xgap=3, ygap=3, showscale=False,
-        )])
-        fig_cal.update_layout(
-            height=200, margin=dict(l=40, r=20, t=20, b=20),
-            plot_bgcolor="#FAF9F6", paper_bgcolor="#FAF9F6",
-            xaxis=dict(showticklabels=False, showgrid=False, zeroline=False),
-            yaxis=dict(tickmode="array", tickvals=[6,5,4,3,2,1,0],
-                       ticktext=WEEKDAYS, showgrid=False, zeroline=False,
-                       tickfont=dict(size=10, color="#8C8680")),
-        )
-        st.plotly_chart(fig_cal, use_container_width=True, config={"displayModeBar": False})
+    # 광고채널별 성과 (위 추이의 선택 기간 기준)
+    st.markdown('<div class="section-title">광고채널별 성과</div>', unsafe_allow_html=True)
+    da = df_ads[(df_ads["날짜"] >= d_from) & (df_ads["날짜"] <= d_to)]
+    ad_ch = da.groupby("광고채널").agg({"광고비": "sum", "노출수": "sum", "클릭수": "sum", "전환수": "sum", "전환매출": "sum"}).reset_index()
+    ad_ch = ad_ch[ad_ch["광고비"] > 0]
+    if not ad_ch.empty:
+        ad_ch["CTR"] = (ad_ch["클릭수"] / ad_ch["노출수"].replace(0, 1) * 100).round(2)
+        ad_ch["ROAS"] = (ad_ch["전환매출"] / ad_ch["광고비"].replace(0, 1) * 100).round(0).astype(int)
+        col_funnel, col_bubble = st.columns([1, 1])
+        with col_funnel:
+            st.caption(f"광고 퍼널 (전체 채널 합계, 전환매출 ₩{int(ad_ch['전환매출'].sum()):,})")
+            _imp = int(ad_ch["노출수"].sum()); _click = int(ad_ch["클릭수"].sum()); _conv = int(ad_ch["전환수"].sum())
+            _ctr = (_click / max(1, _imp) * 100); _cvr = (_conv / max(1, _click) * 100)
+            fig_funnel = go.Figure(go.Funnel(
+                y=["노출수", "클릭수", "전환수"], x=[100, 65, 35],
+                text=[f"{_imp:,}", f"{_click:,} · CTR {_ctr:.2f}%", f"{_conv:,}건 · CVR {_cvr:.2f}%"],
+                textinfo="text", textposition="inside",
+                textfont=dict(size=13, color="#FFFFFF", family="Noto Sans KR"),
+                marker={"color": ["#7B8DBF", "#E89373", "#D97757"]},
+                connector={"line": {"color": "#E8E4DE"}},
+            ))
+            fig_funnel.update_layout(height=300, margin=dict(l=20, r=20, t=10, b=10),
+                                     plot_bgcolor="#FAF9F6", paper_bgcolor="#FAF9F6",
+                                     font=dict(family="Noto Sans KR", size=12, color="#3D3B38"),
+                                     xaxis=dict(visible=False))
+            st.plotly_chart(fig_funnel, use_container_width=True, config={"displayModeBar": False})
+        with col_bubble:
+            st.caption("채널 효율 (X:광고비 / Y:ROAS / 크기:전환매출)")
+            CHANNEL_COLORS = {"Meta": "#1877F2", "Naver SA": "#03C75A", "쿠팡": "#FF6F61",
+                              "카페제휴": "#9B59B6", "기타": "#A88B6E"}
+            ad_ch_pos = ad_ch[ad_ch["광고비"] > 0].copy()
+            if not ad_ch_pos.empty:
+                fig_bub = go.Figure()
+                for _, r in ad_ch_pos.iterrows():
+                    fig_bub.add_trace(go.Scatter(
+                        x=[r["광고비"]], y=[r["ROAS"]], mode="markers+text",
+                        text=[r["광고채널"]], textposition="top center",
+                        textfont=dict(size=11, color="#3D3B38"),
+                        marker=dict(size=max(15, min(60, (r["전환매출"] / max(1, ad_ch_pos["전환매출"].max()) * 60))),
+                                    color=CHANNEL_COLORS.get(r["광고채널"], "#8C8680"),
+                                    opacity=0.7, line=dict(width=1.5, color="#FFFFFF")),
+                        hovertemplate=f"<b>{r['광고채널']}</b><br>광고비: ₩{int(r['광고비']):,}<br>ROAS: {r['ROAS']}%<br>전환매출: ₩{int(r['전환매출']):,}<extra></extra>",
+                        showlegend=False))
+                fig_bub.add_hline(y=100, line=dict(color="#C4694D", width=1, dash="dash"),
+                                  annotation_text="손익분기 (ROAS 100%)", annotation_position="top right",
+                                  annotation_font=dict(size=10, color="#C4694D"))
+                fig_bub.update_layout(height=300, margin=dict(l=40, r=20, t=10, b=40),
+                                      plot_bgcolor="#FAF9F6", paper_bgcolor="#FAF9F6",
+                                      font=dict(family="Noto Sans KR", size=10, color="#3D3B38"),
+                                      xaxis=dict(title="광고비 (₩)", gridcolor="#E8E4DE", tickformat=",.0f"),
+                                      yaxis=dict(title="ROAS (%)", gridcolor="#E8E4DE"))
+                st.plotly_chart(fig_bub, use_container_width=True, config={"displayModeBar": False})
+        display_ad = ad_ch.copy()
+        display_ad["광고비"] = display_ad["광고비"].apply(lambda x: f"₩{int(x):,}")
+        display_ad["전환매출"] = display_ad["전환매출"].apply(lambda x: f"₩{int(x):,}")
+        display_ad["노출수"] = display_ad["노출수"].apply(lambda x: f"{int(x):,}")
+        display_ad["클릭수"] = display_ad["클릭수"].apply(lambda x: f"{int(x):,}")
+        display_ad["CTR"] = display_ad["CTR"].apply(lambda x: f"{x}%")
+        display_ad["ROAS"] = display_ad["ROAS"].apply(lambda x: f"{x}%")
+        st.dataframe(display_ad, width="stretch", hide_index=True)
+        download_csv_button(ad_ch, f"광고채널성과_{d_from}_{d_to}.csv", key="dash_dl_ad_ch")
 
 
 # ══════════════════════════════════════════════
@@ -1108,6 +1138,8 @@ elif page == "🏷️ 브랜드 분석":
     for brand in main_brands:
         row = brand_kpi[brand_kpi["_브랜드"] == brand]
         sale_v = int(row["매출"].iloc[0]) if not row.empty else 0
+        ord_v = int(row["주문건수"].iloc[0]) if not row.empty else 0
+        aov_v = int(sale_v / ord_v) if ord_v else 0
         ad_v = int(row["광고비"].iloc[0]) if not row.empty else 0
         roas_v = float(row["ROAS"].iloc[0]) if not row.empty else 0
         broas_v = float(row["B.ROAS"].iloc[0]) if not row.empty else 0
@@ -1115,13 +1147,18 @@ elif page == "🏷️ 브랜드 분석":
         low = 0 < roas_v < 200
         if low:
             _alerts.append(f"{brand} · ROAS {roas_v:.0f}%")
-        c1, c2, c3, c4 = st.columns([2.6, 2.4, 1.8, 1.8])
+        c1, c2, c_aov, c3, c4 = st.columns([2.3, 2.2, 1.9, 1.6, 1.6])
         with c1:
             st.markdown(f"<div style='padding-top:8px;font-size:1.1rem;font-weight:600;color:#2D2B28;'>"
                         f"<span style='color:{color}'>●</span> {brand}</div>", unsafe_allow_html=True)
         with c2:
             st.markdown(f"<div style='padding-top:8px;'><span style='color:#8C8680;font-size:.82rem;'>매출 </span>"
                         f"<span style='font-size:1.1rem;font-weight:600;'>₩{sale_v:,}</span></div>",
+                        unsafe_allow_html=True)
+        with c_aov:
+            atxt = f"₩{aov_v:,}" if ord_v else "—"
+            st.markdown(f"<div style='padding-top:8px;'><span style='color:#8C8680;font-size:.82rem;'>객단가 </span>"
+                        f"<span style='font-size:1.1rem;font-weight:600;color:#2D2B28;'>{atxt}</span></div>",
                         unsafe_allow_html=True)
         with c3:
             rtxt = f"{roas_v:.0f}%" if ad_v else "—"
@@ -1217,191 +1254,6 @@ elif page == "🏷️ 브랜드 분석":
         fig2 = apply_korean_yaxis(fig2)
         fig2.update_layout(barmode="stack", height=350)
         st.plotly_chart(fig2, use_container_width=True, config={"displayModeBar": False})
-
-
-# ══════════════════════════════════════════════
-# PAGE 3: 월별 분석
-# ══════════════════════════════════════════════
-elif page == "📆 월별 분석":
-    st.markdown("""
-    <div style='margin-bottom: 8px;'>
-        <span style='font-size: 1.6rem; font-weight: 700; color: #2D2B28;'>월별 분석</span>
-    </div>
-    """, unsafe_allow_html=True)
-
-    today = _today_kst()
-    period_map = {"최근 7일": 7, "최근 14일": 14, "최근 30일": 30, "최근 90일": 90, "직접 설정": 0}
-    col_p, col_f, col_t = st.columns([1, 1, 1])
-    with col_p:
-        ch_period = st.selectbox("기간", list(period_map.keys()), index=2, key="month_period")
-    if ch_period == "직접 설정":
-        with col_f:
-            ch_from = st.date_input("시작", today - timedelta(30), key="month_from", format="YYYY/MM/DD")
-        with col_t:
-            ch_to = st.date_input("종료", today, key="month_to", format="YYYY/MM/DD")
-    else:
-        ch_from = today - timedelta(period_map[ch_period])
-        ch_to = today
-
-    sf = store_filter_ui("month")
-    merged = get_daily(ch_from, ch_to, sf)
-
-    total_rev = merged["매출"].sum()
-    total_orders = merged["주문건수"].sum()
-    total_aov = int(total_rev / max(1, total_orders))
-    total_ad = merged["광고비"].sum()
-    total_conv = merged["전환매출"].sum()
-
-    st.markdown('<div class="section-title">기간 요약</div>', unsafe_allow_html=True)
-    c1, c2, c3, c4, c5 = st.columns(5)
-    with c1: st.metric("총 매출", fmt(total_rev))
-    with c2: st.metric("총 주문건수", f"{total_orders:,.0f}건")
-    with c3: st.metric("객단가", fmt(total_aov))
-    with c4: st.metric("총 광고비", fmt(total_ad))
-    with c5: st.metric("ROAS", pct(total_conv / total_ad * 100 if total_ad else 0))
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # 일별 추이
-    st.markdown('<div class="section-title">일별 추이</div>', unsafe_allow_html=True)
-    if not merged.empty:
-        fig = make_subplots(specs=[[{"secondary_y": True}]])
-        fig.add_trace(go.Bar(x=merged["날짜"], y=merged["매출"], name="매출",
-                             marker_color="#D97757", opacity=0.8,
-                             hovertemplate="%{x|%Y년 %-m월 %-d일}<br>매출: %{y:,.0f}원<extra></extra>"), secondary_y=False)
-        fig.add_trace(go.Bar(x=merged["날짜"], y=merged["광고비"], name="광고비",
-                             marker_color="#B8B2AA", opacity=0.6,
-                             hovertemplate="%{x|%Y년 %-m월 %-d일}<br>광고비: %{y:,.0f}원<extra></extra>"), secondary_y=False)
-        fig.add_trace(go.Scatter(x=merged["날짜"], y=merged["ROAS"], name="ROAS",
-                                 line=dict(color="#7B8DBF", width=2), mode="lines+markers",
-                                 marker=dict(size=4),
-                                 hovertemplate="%{x|%Y년 %-m월 %-d일}<br>ROAS: %{y:,.0f}%<extra></extra>"), secondary_y=True)
-        fig.update_yaxes(title_text="금액", secondary_y=False)
-        fig.update_yaxes(title_text="ROAS (%)", secondary_y=True)
-        fig = apply_plotly_theme(fig)
-        fig = apply_korean_yaxis(fig)
-        fig.update_layout(barmode="group", height=380)
-        st.plotly_chart(fig, use_container_width=True)
-
-    # 스토어별 매출
-    st.markdown('<div class="section-title">스토어별 매출</div>', unsafe_allow_html=True)
-    ds = df_sales[(df_sales["날짜"] >= ch_from) & (df_sales["날짜"] <= ch_to)]
-    if sf != "전체":
-        ds = ds[ds["스토어"].isin(sf)]
-    ch = ds.groupby("스토어").agg({"매출": "sum", "주문건수": "sum"}).reset_index()
-    ch["객단가"] = (ch["매출"] / ch["주문건수"].replace(0, 1)).astype(int)
-    ch["매출비중"] = (ch["매출"] / ch["매출"].sum() * 100).round(1)
-
-    col_tbl, col_pie = st.columns([2, 1])
-    with col_tbl:
-        display_ch = ch.copy()
-        display_ch["매출"] = display_ch["매출"].apply(lambda x: f"₩{int(x):,}")
-        display_ch["객단가"] = display_ch["객단가"].apply(lambda x: f"₩{int(x):,}")
-        display_ch["매출비중"] = display_ch["매출비중"].apply(lambda x: f"{x}%")
-        st.dataframe(display_ch, width="stretch", hide_index=True)
-        download_csv_button(ch, f"스토어매출_{ch_from}_{ch_to}.csv", key="dl_store")
-    with col_pie:
-        if not ch.empty:
-            colors = [STORE_COLORS.get(s, "#A8A29E") for s in ch["스토어"]]
-            fig_pie = go.Figure(data=[go.Pie(
-                labels=ch["스토어"], values=ch["매출"],
-                marker=dict(colors=colors),
-                hole=0.4,
-                textinfo="label+percent",
-                hovertemplate="%{label}<br>매출 ₩%{value:,.0f} · %{percent}<extra></extra>",
-                textfont=dict(size=12, color="#3D3B38"),
-                textposition="outside",
-                pull=[0.02] * 10,
-            )])
-            fig_pie = apply_plotly_theme(fig_pie)
-            fig_pie.update_layout(height=350, margin=dict(l=40, r=40, t=30, b=30))
-            st.plotly_chart(fig_pie, use_container_width=True)
-
-    # 광고채널별 성과
-    st.markdown('<div class="section-title">광고채널별 성과</div>', unsafe_allow_html=True)
-    da = df_ads[(df_ads["날짜"] >= ch_from) & (df_ads["날짜"] <= ch_to)]
-    ad_ch = da.groupby("광고채널").agg({"광고비": "sum", "노출수": "sum", "클릭수": "sum", "전환수": "sum", "전환매출": "sum"}).reset_index()
-    if not ad_ch.empty:
-        ad_ch["CTR"] = (ad_ch["클릭수"] / ad_ch["노출수"].replace(0, 1) * 100).round(2)
-        ad_ch["ROAS"] = (ad_ch["전환매출"] / ad_ch["광고비"].replace(0, 1) * 100).round(0).astype(int)
-
-        # 광고 퍼널 + 효율 버블 차트 (좌/우)
-        col_funnel, col_bubble = st.columns([1, 1])
-        with col_funnel:
-            st.caption(f"광고 퍼널 (전체 채널 합계, 전환매출 ₩{int(ad_ch['전환매출'].sum()):,})")
-            _imp = int(ad_ch["노출수"].sum())
-            _click = int(ad_ch["클릭수"].sum())
-            _conv = int(ad_ch["전환수"].sum())
-            _ctr = (_click / max(1, _imp) * 100)
-            _cvr = (_conv / max(1, _click) * 100)
-            # 시각적 비율 고정 (100 / 65 / 35) - 실제 값은 텍스트로 표시
-            fig_funnel = go.Figure(go.Funnel(
-                y=["노출수", "클릭수", "전환수"],
-                x=[100, 65, 35],
-                text=[f"{_imp:,}",
-                      f"{_click:,} · CTR {_ctr:.2f}%",
-                      f"{_conv:,}건 · CVR {_cvr:.2f}%"],
-                textinfo="text",
-                textposition="inside",
-                textfont=dict(size=13, color="#FFFFFF", family="Noto Sans KR"),
-                marker={"color": ["#7B8DBF", "#E89373", "#D97757"]},
-                connector={"line": {"color": "#E8E4DE"}},
-            ))
-            fig_funnel.update_layout(
-                height=320, margin=dict(l=20, r=20, t=10, b=10),
-                plot_bgcolor="#FAF9F6", paper_bgcolor="#FAF9F6",
-                font=dict(family="Noto Sans KR", size=12, color="#3D3B38"),
-                xaxis=dict(visible=False),
-            )
-            st.plotly_chart(fig_funnel, use_container_width=True, config={"displayModeBar": False})
-
-        with col_bubble:
-            st.caption("채널 효율 (X:광고비 / Y:ROAS / 크기:전환매출)")
-            CHANNEL_COLORS = {
-                "Meta": "#1877F2", "Naver SA": "#03C75A", "쿠팡": "#FF6F61",
-                "카페제휴": "#9B59B6", "기타": "#A88B6E",
-            }
-            ad_ch_pos = ad_ch[ad_ch["광고비"] > 0].copy()
-            if not ad_ch_pos.empty:
-                fig_bub = go.Figure()
-                for _, r in ad_ch_pos.iterrows():
-                    fig_bub.add_trace(go.Scatter(
-                        x=[r["광고비"]], y=[r["ROAS"]],
-                        mode="markers+text",
-                        text=[r["광고채널"]],
-                        textposition="top center",
-                        textfont=dict(size=11, color="#3D3B38"),
-                        marker=dict(
-                            size=max(15, min(60, (r["전환매출"] / max(1, ad_ch_pos["전환매출"].max()) * 60))),
-                            color=CHANNEL_COLORS.get(r["광고채널"], "#8C8680"),
-                            opacity=0.7, line=dict(width=1.5, color="#FFFFFF"),
-                        ),
-                        hovertemplate=f"<b>{r['광고채널']}</b><br>광고비: ₩{int(r['광고비']):,}<br>ROAS: {r['ROAS']}%<br>전환매출: ₩{int(r['전환매출']):,}<extra></extra>",
-                        showlegend=False,
-                    ))
-                # ROAS 100% 기준선
-                fig_bub.add_hline(y=100, line=dict(color="#C4694D", width=1, dash="dash"),
-                                  annotation_text="손익분기 (ROAS 100%)",
-                                  annotation_position="top right",
-                                  annotation_font=dict(size=10, color="#C4694D"))
-                fig_bub.update_layout(
-                    height=320, margin=dict(l=40, r=20, t=10, b=40),
-                    plot_bgcolor="#FAF9F6", paper_bgcolor="#FAF9F6",
-                    font=dict(family="Noto Sans KR", size=10, color="#3D3B38"),
-                    xaxis=dict(title="광고비 (₩)", gridcolor="#E8E4DE", tickformat=",.0f"),
-                    yaxis=dict(title="ROAS (%)", gridcolor="#E8E4DE"),
-                )
-                st.plotly_chart(fig_bub, use_container_width=True, config={"displayModeBar": False})
-
-        display_ad = ad_ch.copy()
-        display_ad["광고비"] = display_ad["광고비"].apply(lambda x: f"₩{int(x):,}")
-        display_ad["전환매출"] = display_ad["전환매출"].apply(lambda x: f"₩{int(x):,}")
-        display_ad["노출수"] = display_ad["노출수"].apply(lambda x: f"{int(x):,}")
-        display_ad["클릭수"] = display_ad["클릭수"].apply(lambda x: f"{int(x):,}")
-        display_ad["CTR"] = display_ad["CTR"].apply(lambda x: f"{x}%")
-        display_ad["ROAS"] = display_ad["ROAS"].apply(lambda x: f"{x}%")
-        st.dataframe(display_ad, width="stretch", hide_index=True)
-        download_csv_button(ad_ch, f"광고채널성과_{ch_from}_{ch_to}.csv", key="dl_ad_ch")
 
 
 # ══════════════════════════════════════════════
