@@ -519,8 +519,8 @@ def fmt_full(val):
     return f"₩{int(val):,}"
 
 def pct(val):
-    if pd.isna(val): return "0.0%"
-    return f"{val:.1f}%"
+    if pd.isna(val): return "0%"
+    return f"{val:,.0f}%"
 
 def krw_hover(val):
     if abs(val) >= 100_000_000: return f"{val/100_000_000:.1f}억원"
@@ -1267,12 +1267,15 @@ elif page == "📆 월별 분석":
     if not merged.empty:
         fig = make_subplots(specs=[[{"secondary_y": True}]])
         fig.add_trace(go.Bar(x=merged["날짜"], y=merged["매출"], name="매출",
-                             marker_color="#D97757", opacity=0.8), secondary_y=False)
+                             marker_color="#D97757", opacity=0.8,
+                             hovertemplate="%{x|%Y년 %-m월 %-d일}<br>매출: %{y:,.0f}원<extra></extra>"), secondary_y=False)
         fig.add_trace(go.Bar(x=merged["날짜"], y=merged["광고비"], name="광고비",
-                             marker_color="#B8B2AA", opacity=0.6), secondary_y=False)
+                             marker_color="#B8B2AA", opacity=0.6,
+                             hovertemplate="%{x|%Y년 %-m월 %-d일}<br>광고비: %{y:,.0f}원<extra></extra>"), secondary_y=False)
         fig.add_trace(go.Scatter(x=merged["날짜"], y=merged["ROAS"], name="ROAS",
                                  line=dict(color="#7B8DBF", width=2), mode="lines+markers",
-                                 marker=dict(size=4)), secondary_y=True)
+                                 marker=dict(size=4),
+                                 hovertemplate="%{x|%Y년 %-m월 %-d일}<br>ROAS: %{y:,.0f}%<extra></extra>"), secondary_y=True)
         fig.update_yaxes(title_text="금액", secondary_y=False)
         fig.update_yaxes(title_text="ROAS (%)", secondary_y=True)
         fig = apply_plotly_theme(fig)
@@ -1305,6 +1308,7 @@ elif page == "📆 월별 분석":
                 marker=dict(colors=colors),
                 hole=0.4,
                 textinfo="label+percent",
+                hovertemplate="%{label}<br>매출 ₩%{value:,.0f} · %{percent}<extra></extra>",
                 textfont=dict(size=12, color="#3D3B38"),
                 textposition="outside",
                 pull=[0.02] * 10,
@@ -1319,7 +1323,7 @@ elif page == "📆 월별 분석":
     ad_ch = da.groupby("광고채널").agg({"광고비": "sum", "노출수": "sum", "클릭수": "sum", "전환수": "sum", "전환매출": "sum"}).reset_index()
     if not ad_ch.empty:
         ad_ch["CTR"] = (ad_ch["클릭수"] / ad_ch["노출수"].replace(0, 1) * 100).round(2)
-        ad_ch["ROAS"] = (ad_ch["전환매출"] / ad_ch["광고비"].replace(0, 1) * 100).round(1)
+        ad_ch["ROAS"] = (ad_ch["전환매출"] / ad_ch["광고비"].replace(0, 1) * 100).round(0).astype(int)
 
         # 광고 퍼널 + 효율 버블 차트 (좌/우)
         col_funnel, col_bubble = st.columns([1, 1])
@@ -1439,6 +1443,7 @@ elif page == "🏪 채널 분석":
                 labels=store_summary["스토어"], values=store_summary["매출"],
                 marker=dict(colors=colors), hole=0.4,
                 textinfo="label+percent",
+                hovertemplate="%{label}<br>매출 ₩%{value:,.0f} · %{percent}<extra></extra>",
                 textfont=dict(size=12, color="#3D3B38"),
                 textposition="outside",
                 pull=[0.02] * 10,
@@ -1465,6 +1470,7 @@ elif page == "🏪 채널 분석":
                 x=sd["날짜"], y=sd["매출"], name=store,
                 line=dict(color=STORE_COLORS.get(store, "#A8A29E"), width=2),
                 mode="lines",
+                hovertemplate=f"{store}<br>%{{x|%Y년 %-m월 %-d일}}<br>매출: %{{y:,.0f}}원<extra></extra>",
             ))
         fig2 = apply_plotly_theme(fig2)
         fig2 = apply_korean_yaxis(fig2)
@@ -1489,10 +1495,12 @@ elif page == "🏪 채널 분석":
 
         fig3 = make_subplots(specs=[[{"secondary_y": True}]])
         fig3.add_trace(go.Bar(x=vdaily["날짜"], y=vdaily["순방문자수"], name="순방문자수",
-                              marker_color="#D97757", opacity=0.6), secondary_y=False)
+                              marker_color="#D97757", opacity=0.6,
+                              hovertemplate="%{x|%Y년 %-m월 %-d일}<br>순방문자수: %{y:,.0f}명<extra></extra>"), secondary_y=False)
         fig3.add_trace(go.Scatter(x=vdaily["날짜"], y=vdaily["전환율"], name="전환율",
                                   line=dict(color="#7B8DBF", width=2), mode="lines+markers",
-                                  marker=dict(size=4)), secondary_y=True)
+                                  marker=dict(size=4),
+                                  hovertemplate="%{x|%Y년 %-m월 %-d일}<br>전환율: %{y:,.1f}%<extra></extra>"), secondary_y=True)
         fig3.update_yaxes(title_text="순방문자수", secondary_y=False)
         fig3.update_yaxes(title_text="전환율 (%)", secondary_y=True)
         fig3 = apply_plotly_theme(fig3)
