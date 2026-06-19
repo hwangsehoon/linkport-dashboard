@@ -499,8 +499,12 @@ def fmt_axis(val):
     return f"{val:,.0f}"
 
 def fmt_date(d):
-    if isinstance(d, str): return d.replace("-", ".")
-    return d.strftime("%Y.%m.%d")
+    if isinstance(d, str):
+        try:
+            d = datetime.strptime(d[:10], "%Y-%m-%d").date()
+        except Exception:
+            return d
+    return f"{d.year}년 {d.month}월 {d.day}일"
 
 def delta_str(curr, prev):
     if prev == 0: return None
@@ -622,7 +626,7 @@ def apply_plotly_theme(fig):
         xaxis=dict(
             gridcolor=c["grid"], showline=False, color=c["text"],
             tickformatstops=[
-                dict(dtickrange=[None, 86400000*7], value="%-m/%-d"),
+                dict(dtickrange=[None, 86400000*7], value="%-m월 %-d일"),
                 dict(dtickrange=[86400000*7, 86400000*60], value="%-m월 %-d일"),
                 dict(dtickrange=[86400000*60, "M12"], value="%Y년 %-m월"),
                 dict(dtickrange=["M12", None], value="%Y년"),
@@ -746,7 +750,7 @@ with st.sidebar:
 
     st.divider()
     if _data_mode == "API":
-        st.caption(f"LIVE · {_today_kst().strftime('%Y.%m.%d')}")
+        st.caption(f"LIVE · {fmt_date(_today_kst())}")
         _refresh_days = st.number_input("갱신 기간(일)", min_value=1, max_value=30, value=7, step=1, key="refresh_days")
         if st.button(f"🔄 최근 {_refresh_days}일 매출/광고 갱신", use_container_width=True):
             with st.spinner(f"API에서 최근 {_refresh_days}일 가져오는 중..."):
@@ -916,18 +920,18 @@ if page == "📊 대시보드":
         fig = make_subplots(specs=[[{"secondary_y": True}]])
         fig.add_trace(go.Bar(x=chart_data["날짜"], y=chart_data["매출"], name="매출",
                              marker_color="#D97757", opacity=0.8,
-                             hovertemplate="%{x|%Y.%m.%d}<br>매출: %{y:,.0f}원<extra></extra>"), secondary_y=False)
+                             hovertemplate="%{x|%Y년 %-m월 %-d일}<br>매출: %{y:,.0f}원<extra></extra>"), secondary_y=False)
         fig.add_trace(go.Bar(x=chart_data["날짜"], y=chart_data["광고비"], name="광고비",
                              marker_color="#B8B2AA", opacity=0.6,
-                             hovertemplate="%{x|%Y.%m.%d}<br>광고비: %{y:,.0f}원<extra></extra>"), secondary_y=False)
+                             hovertemplate="%{x|%Y년 %-m월 %-d일}<br>광고비: %{y:,.0f}원<extra></extra>"), secondary_y=False)
         fig.add_trace(go.Scatter(x=chart_data["날짜"], y=chart_data["ROAS"], name="ROAS",
                                  line=dict(color="#7B8DBF", width=2), mode="lines+markers",
                                  marker=dict(size=4),
-                                 hovertemplate="%{x|%Y.%m.%d}<br>ROAS: %{y:.1f}%<extra></extra>"), secondary_y=True)
+                                 hovertemplate="%{x|%Y년 %-m월 %-d일}<br>ROAS: %{y:.1f}%<extra></extra>"), secondary_y=True)
         fig.add_trace(go.Scatter(x=chart_data["날짜"], y=chart_data["B.ROAS"], name="B.ROAS",
                                  line=dict(color="#4A8C5F", width=2, dash="dot"), mode="lines+markers",
                                  marker=dict(size=4),
-                                 hovertemplate="%{x|%Y.%m.%d}<br>B.ROAS: %{y:.1f}%<extra></extra>"), secondary_y=True)
+                                 hovertemplate="%{x|%Y년 %-m월 %-d일}<br>B.ROAS: %{y:.1f}%<extra></extra>"), secondary_y=True)
         fig.update_yaxes(title_text="금액 (원)", secondary_y=False, gridcolor=GRID_COLOR)
         fig.update_yaxes(title_text="ROAS / B.ROAS (%)", secondary_y=True, gridcolor=GRID_COLOR)
         fig = apply_plotly_theme(fig)
@@ -973,7 +977,7 @@ if page == "📊 대시보드":
             _xs.append(wk)
             _ys.append(6 - wd)  # 월요일 위로
             _values.append(v)
-            _texts.append(f"{dd.strftime('%Y.%m.%d')} ({WEEKDAYS[wd]})<br>매출 {fmt_full(int(v))}")
+            _texts.append(f"{fmt_date(dd)} ({WEEKDAYS[wd]})<br>매출 {fmt_full(int(v))}")
         _vmax = max(_values) if _values else 1
         fig_cal = go.Figure(data=[go.Heatmap(
             x=_xs, y=_ys, z=_values, text=_texts, hoverinfo="text",
@@ -1081,7 +1085,7 @@ elif page == "🏷️ 브랜드 분석":
                     x=bd["날짜"], y=bd["매출"], name=brand,
                     line=dict(color=BRAND_COLORS.get(brand, "#A8A29E"), width=2),
                     mode="lines",
-                    hovertemplate=f"{brand}<br>%{{x|%Y.%m.%d}}<br>매출: %{{y:,.0f}}원<extra></extra>",
+                    hovertemplate=f"{brand}<br>%{{x|%Y년 %-m월 %-d일}}<br>매출: %{{y:,.0f}}원<extra></extra>",
                 ))
         fig = apply_plotly_theme(fig)
         fig = apply_korean_yaxis(fig)
@@ -1100,7 +1104,7 @@ elif page == "🏷️ 브랜드 분석":
                     x=bd["날짜"], y=bd["광고비"], name=brand,
                     marker_color=BRAND_COLORS.get(brand, "#A8A29E"),
                     opacity=0.8,
-                    hovertemplate=f"{brand}<br>%{{x|%Y.%m.%d}}<br>광고비: %{{y:,.0f}}원<extra></extra>",
+                    hovertemplate=f"{brand}<br>%{{x|%Y년 %-m월 %-d일}}<br>광고비: %{{y:,.0f}}원<extra></extra>",
                 ))
         fig2 = apply_plotly_theme(fig2)
         fig2 = apply_korean_yaxis(fig2)
