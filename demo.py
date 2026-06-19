@@ -53,6 +53,15 @@ setInterval(tr,250);
 </script>
 """, height=0)
 
+# 모든 차트의 영어 도구막대(modebar)를 전역으로 숨김 (깔끔하게)
+_orig_plotly_chart = st.plotly_chart
+def _plotly_chart_clean(fig, **kwargs):
+    cfg = kwargs.get("config") or {}
+    cfg.setdefault("displayModeBar", False)
+    kwargs["config"] = cfg
+    return _orig_plotly_chart(fig, **kwargs)
+st.plotly_chart = _plotly_chart_clean
+
 # ══════════════════════════════════════════════
 # CSS - Claude Design Tone
 # ══════════════════════════════════════════════
