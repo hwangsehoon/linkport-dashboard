@@ -1135,6 +1135,7 @@ elif page == "🏷️ 브랜드 분석":
     </div>""", unsafe_allow_html=True)
 
     _alerts = []
+    _rows_html = ""
     for brand in main_brands:
         row = brand_kpi[brand_kpi["_브랜드"] == brand]
         sale_v = int(row["매출"].iloc[0]) if not row.empty else 0
@@ -1147,32 +1148,29 @@ elif page == "🏷️ 브랜드 분석":
         low = 0 < roas_v < 200
         if low:
             _alerts.append(f"{brand} · ROAS {roas_v:.0f}%")
-        c1, c2, c_aov, c3, c4 = st.columns([2.3, 2.2, 1.9, 1.6, 1.6])
-        with c1:
-            st.markdown(f"<div style='padding-top:8px;font-size:1.1rem;font-weight:600;color:#2D2B28;'>"
-                        f"<span style='color:{color}'>●</span> {brand}</div>", unsafe_allow_html=True)
-        with c2:
-            st.markdown(f"<div style='padding-top:8px;'><span style='color:#8C8680;font-size:.82rem;'>매출 </span>"
-                        f"<span style='font-size:1.1rem;font-weight:600;'>₩{sale_v:,}</span></div>",
-                        unsafe_allow_html=True)
-        with c_aov:
-            atxt = f"₩{aov_v:,}" if ord_v else "—"
-            st.markdown(f"<div style='padding-top:8px;'><span style='color:#8C8680;font-size:.82rem;'>객단가 </span>"
-                        f"<span style='font-size:1.1rem;font-weight:600;color:#2D2B28;'>{atxt}</span></div>",
-                        unsafe_allow_html=True)
-        with c3:
-            rtxt = f"{roas_v:.0f}%" if ad_v else "—"
-            rcol = "#B1442F" if low else "#2D2B28"
-            st.markdown(f"<div style='padding-top:8px;'><span style='color:#8C8680;font-size:.82rem;'>ROAS </span>"
-                        f"<span style='font-size:1.1rem;font-weight:600;color:{rcol};'>{rtxt}</span></div>",
-                        unsafe_allow_html=True)
-        with c4:
-            btxt = f"{broas_v:.0f}%" if ad_v else "—"
-            st.markdown(f"<div style='padding-top:8px;'><span style='color:#8C8680;font-size:.82rem;'>B.ROAS </span>"
-                        f"<span style='font-size:1.1rem;font-weight:600;color:#2D2B28;'>{btxt}</span></div>",
-                        unsafe_allow_html=True)
-        st.markdown("<hr style='margin:4px 0;border:none;border-top:1px solid #ECECEC;'>",
-                    unsafe_allow_html=True)
+        rtxt = f"{roas_v:.0f}%" if ad_v else "—"
+        rcol = "#B1442F" if low else "#2D2B28"
+        btxt = f"{broas_v:.0f}%" if ad_v else "—"
+        atxt = f"₩{aov_v:,}" if ord_v else "—"
+        _rows_html += (
+            "<tr style='border-bottom:1px solid #ECECEC;'>"
+            f"<td style='padding:10px 8px;font-weight:600;color:#2D2B28;'><span style='color:{color};'>●</span> {brand}</td>"
+            f"<td style='padding:10px 8px;text-align:right;font-weight:600;color:#2D2B28;'>₩{sale_v:,}</td>"
+            f"<td style='padding:10px 8px;text-align:right;color:#2D2B28;'>{atxt}</td>"
+            f"<td style='padding:10px 8px;text-align:right;font-weight:600;color:{rcol};'>{rtxt}</td>"
+            f"<td style='padding:10px 8px;text-align:right;color:#2D2B28;'>{btxt}</td>"
+            "</tr>"
+        )
+    st.markdown(
+        "<table style='width:100%;border-collapse:collapse;font-size:0.95rem;'>"
+        "<thead><tr style='border-bottom:2px solid #E0DBD2;'>"
+        "<th style='padding:8px;text-align:left;color:#8C8680;font-weight:500;font-size:.82rem;'>브랜드</th>"
+        "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.82rem;'>매출</th>"
+        "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.82rem;'>객단가</th>"
+        "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.82rem;'>ROAS</th>"
+        "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.82rem;'>B.ROAS</th>"
+        "</tr></thead><tbody>" + _rows_html + "</tbody></table>",
+        unsafe_allow_html=True)
 
     if _alerts:
         _items = "".join([f"<li style='margin:4px 0;'>{a}</li>" for a in _alerts])
