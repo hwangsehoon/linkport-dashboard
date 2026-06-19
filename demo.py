@@ -1155,11 +1155,19 @@ elif page == "🏷️ 브랜드 분석":
     # 추이 차트 브랜드 선택 (매출/광고비 공통)
     _sel = st.radio("브랜드 선택", ["전체"] + main_brands, horizontal=True, key="brand_trend_sel")
     _show = main_brands if _sel == "전체" else [_sel]
+    _today = _today_kst()
+    _PER = {"최근 7일": 7, "최근 14일": 14, "최근 30일": 30, "최근 90일": 90}
 
-    # 브랜드별 매출 추이
-    st.markdown('<div class="section-title">브랜드별 매출 추이</div>', unsafe_allow_html=True)
-    daily_brand = bs.groupby(["날짜", "_브랜드"]).agg({"매출": "sum"}).reset_index()
-    if not daily_brand.empty:
+    # 브랜드별 매출 추이 (차트 자체 기간 선택 — 위로 안 올라가도 됨)
+    _ct1, _cp1 = st.columns([3, 1])
+    with _ct1:
+        st.markdown('<div class="section-title">브랜드별 매출 추이</div>', unsafe_allow_html=True)
+    with _cp1:
+        _pm = st.selectbox("기간", list(_PER), index=2, key="trend_sales_per", label_visibility="collapsed")
+    _ds = df_sales[(df_sales["날짜"] >= _today - timedelta(_PER[_pm])) & (df_sales["날짜"] <= _today)].copy()
+    if not _ds.empty:
+        _ds["_브랜드"] = _ds.apply(map_brand_sales, axis=1)
+        daily_brand = _ds.groupby(["날짜", "_브랜드"]).agg({"매출": "sum"}).reset_index()
         fig = go.Figure()
         for brand in _show:
             bd = daily_brand[daily_brand["_브랜드"] == brand]
@@ -1175,10 +1183,17 @@ elif page == "🏷️ 브랜드 분석":
         fig.update_layout(height=350)
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
-    # 브랜드별 광고비 추이
-    st.markdown('<div class="section-title">브랜드별 광고비 추이</div>', unsafe_allow_html=True)
-    daily_brand_ad = ba.groupby(["날짜", "_브랜드"]).agg({"광고비": "sum"}).reset_index()
-    if not daily_brand_ad.empty:
+    # 브랜드별 광고비 추이 (차트 자체 기간 선택)
+    _ct2, _cp2 = st.columns([3, 1])
+    with _ct2:
+        st.markdown('<div class="section-title">브랜드별 광고비 추이</div>', unsafe_allow_html=True)
+    with _cp2:
+        _pa = st.selectbox("기간", list(_PER), index=2, key="trend_ad_per", label_visibility="collapsed")
+    _da = df_ads[(df_ads["날짜"] >= _today - timedelta(_PER[_pa])) & (df_ads["날짜"] <= _today)].copy()
+    if not _da.empty:
+        _da["_브랜드"] = (_da["브랜드"].fillna("기타").replace("", "기타")
+                       if "브랜드" in _da.columns else "기타")
+        daily_brand_ad = _da.groupby(["날짜", "_브랜드"]).agg({"광고비": "sum"}).reset_index()
         fig2 = go.Figure()
         for brand in _show:
             bd = daily_brand_ad[daily_brand_ad["_브랜드"] == brand]
