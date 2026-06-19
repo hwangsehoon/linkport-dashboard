@@ -1127,12 +1127,17 @@ elif page == "🏷️ 브랜드 분석":
         with c5:
             sd = _bser[_bser["_브랜드"] == brand].sort_values("날짜")
             if not sd.empty:
-                _sf = go.Figure(go.Scatter(y=sd["매출"].tolist(), mode="lines",
+                _vals = sd["매출"].tolist()
+                # 하루만 크게 튀면 나머지가 눌려 보이므로 y축 상한을 이상치 제외(92퍼센타일)로 잡아 전체 추세가 보이게
+                _cap = float(pd.Series(_vals).quantile(0.92)) if len(_vals) >= 6 else max(_vals + [1])
+                _cap = max(_cap, 1)
+                _sf = go.Figure(go.Scatter(y=_vals, mode="lines",
                                            line=dict(color=color, width=2), fill="tozeroy",
                                            fillcolor=_rgba(color, 0.13)))
                 _sf.update_layout(height=44, margin=dict(l=0, r=0, t=0, b=0),
                                   paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                                  xaxis=dict(visible=False), yaxis=dict(visible=False))
+                                  xaxis=dict(visible=False),
+                                  yaxis=dict(visible=False, range=[0, _cap * 1.15]))
                 st.plotly_chart(_sf, use_container_width=True, config={"displayModeBar": False})
         st.markdown("<hr style='margin:2px 0;border:none;border-top:1px solid #ECECEC;'>",
                     unsafe_allow_html=True)
