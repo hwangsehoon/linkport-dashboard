@@ -11,6 +11,9 @@ coupang_session.json
 coupang_profile/
 crawl.log
 coupang_error_*.png
+sync_auto.log
+.coupang_ads_last
+preview_*.py
 
 # 로컬 DB (Postgres로 이관)
 dashboard_data.db

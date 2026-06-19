@@ -5,21 +5,34 @@
 - start.bat에서 대시보드 시작 전에 자동 실행
 """
 import os
+import time
 from pathlib import Path
 from datetime import date, timedelta
 from config import is_configured
 from api.db import get_missing_dates, mark_fetched, save_sales, save_ads
 from api.token_manager import check_and_refresh_all
 
+# 쿠팡 광고 크롤러는 Chrome을 띄우므로 자주 돌리면 부담 → 최소 간격(분)
+COUPANG_ADS_MIN_INTERVAL_MIN = 60
+
 
 def _sync_coupang_ads(days):
-    """쿠팡 광고 크롤러 실행 (로컬·세션 있을 때만 — CI/세션없음은 자동 스킵)."""
+    """쿠팡 광고 크롤러 실행 (로컬·세션 있을 때만 — CI/세션없음은 자동 스킵).
+    5분 동기화에 매번 Chrome을 띄우지 않도록 1시간에 한 번만 실행한다."""
     if os.getenv("GITHUB_ACTIONS"):
         return  # CI에는 브라우저/로그인 세션 없음
     profile = Path(__file__).parent / "coupang_profile"
     if not profile.exists():
         print("  쿠팡 광고: 프로필 없음 — 스킵 (최초 1회 `python coupang_crawler.py`로 로그인)")
         return
+    marker = Path(__file__).parent / ".coupang_ads_last"
+    if marker.exists() and (time.time() - marker.stat().st_mtime) < COUPANG_ADS_MIN_INTERVAL_MIN * 60:
+        print(f"  쿠팡 광고: 최근 실행됨 — 스킵 ({COUPANG_ADS_MIN_INTERVAL_MIN}분 주기)")
+        return
+    try:
+        marker.write_text(str(time.time()))  # 시도 시각 기록 (성공·실패 무관, 주기 유지)
+    except Exception:
+        pass
     try:
         from coupang_crawler import crawl, SessionExpired
         print("  쿠팡 광고: 크롤러 실행 중...")
@@ -129,4 +142,15 @@ def sync_recent(days=7):
 
 
 if __name__ == "__main__":
+    import sys
+    from datetime import datetime
+    # 스케줄러(pythonw)는 콘솔이 없어 stdout이 None → 로그파일로 출력
+    if sys.stdout is None:
+        _log = open(Path(__file__).parent / "sync_auto.log", "a", encoding="utf-8")
+        sys.stdout = sys.stderr = _log
+    print(f"\n===== {datetime.now():%Y-%m-%d %H:%M:%S} 동기화 시작 =====")
     sync_recent(7)
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
