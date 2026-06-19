@@ -1104,13 +1104,6 @@ elif page == "🏷️ 브랜드 분석":
       <div style='color:#8C8680;font-size:.9rem;'>선택 기간 매출 · 광고 ROAS {_tr:.0f}% · 광고비 ₩{_ta:,}</div>
     </div>""", unsafe_allow_html=True)
 
-    # 브랜드별 일매출 (스파크라인용)
-    _bser = bs.groupby(["날짜", "_브랜드"])["매출"].sum().reset_index()
-
-    def _rgba(h, a):
-        h = h.lstrip("#")
-        return f"rgba({int(h[0:2],16)},{int(h[2:4],16)},{int(h[4:6],16)},{a})"
-
     _alerts = []
     for brand in main_brands:
         row = brand_kpi[brand_kpi["_브랜드"] == brand]
@@ -1122,41 +1115,26 @@ elif page == "🏷️ 브랜드 분석":
         low = 0 < roas_v < 200
         if low:
             _alerts.append(f"{brand} · ROAS {roas_v:.0f}%")
-        c1, c2, c3, c4, c5 = st.columns([2.0, 1.9, 1.35, 1.35, 2.2])
+        c1, c2, c3, c4 = st.columns([2.6, 2.4, 1.8, 1.8])
         with c1:
-            st.markdown(f"<div style='padding-top:10px;font-size:1.05rem;font-weight:600;color:#2D2B28;'>"
+            st.markdown(f"<div style='padding-top:8px;font-size:1.1rem;font-weight:600;color:#2D2B28;'>"
                         f"<span style='color:{color}'>●</span> {brand}</div>", unsafe_allow_html=True)
         with c2:
-            st.markdown(f"<div style='padding-top:8px;'><span style='color:#8C8680;font-size:.8rem;'>매출 </span>"
-                        f"<span style='font-size:1.05rem;font-weight:600;'>₩{sale_v:,}</span></div>",
+            st.markdown(f"<div style='padding-top:8px;'><span style='color:#8C8680;font-size:.82rem;'>매출 </span>"
+                        f"<span style='font-size:1.1rem;font-weight:600;'>₩{sale_v:,}</span></div>",
                         unsafe_allow_html=True)
         with c3:
             rtxt = f"{roas_v:.0f}%" if ad_v else "—"
             rcol = "#B1442F" if low else "#2D2B28"
-            st.markdown(f"<div style='padding-top:8px;'><span style='color:#8C8680;font-size:.8rem;'>ROAS </span>"
-                        f"<span style='font-size:1.05rem;font-weight:600;color:{rcol};'>{rtxt}</span></div>",
+            st.markdown(f"<div style='padding-top:8px;'><span style='color:#8C8680;font-size:.82rem;'>ROAS </span>"
+                        f"<span style='font-size:1.1rem;font-weight:600;color:{rcol};'>{rtxt}</span></div>",
                         unsafe_allow_html=True)
         with c4:
             btxt = f"{broas_v:.0f}%" if ad_v else "—"
-            st.markdown(f"<div style='padding-top:8px;'><span style='color:#8C8680;font-size:.8rem;'>B.ROAS </span>"
-                        f"<span style='font-size:1.05rem;font-weight:600;color:#2D2B28;'>{btxt}</span></div>",
+            st.markdown(f"<div style='padding-top:8px;'><span style='color:#8C8680;font-size:.82rem;'>B.ROAS </span>"
+                        f"<span style='font-size:1.1rem;font-weight:600;color:#2D2B28;'>{btxt}</span></div>",
                         unsafe_allow_html=True)
-        with c5:
-            sd = _bser[_bser["_브랜드"] == brand].sort_values("날짜")
-            if not sd.empty:
-                _vals = sd["매출"].tolist()
-                # 하루만 크게 튀면 나머지가 눌려 보이므로 y축 상한을 이상치 제외(92퍼센타일)로 잡아 전체 추세가 보이게
-                _cap = float(pd.Series(_vals).quantile(0.92)) if len(_vals) >= 6 else max(_vals + [1])
-                _cap = max(_cap, 1)
-                _sf = go.Figure(go.Scatter(y=_vals, mode="lines",
-                                           line=dict(color=color, width=2), fill="tozeroy",
-                                           fillcolor=_rgba(color, 0.13)))
-                _sf.update_layout(height=44, margin=dict(l=0, r=0, t=0, b=0),
-                                  paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                                  xaxis=dict(visible=False),
-                                  yaxis=dict(visible=False, range=[0, _cap * 1.15]))
-                st.plotly_chart(_sf, use_container_width=True, config={"displayModeBar": False})
-        st.markdown("<hr style='margin:2px 0;border:none;border-top:1px solid #ECECEC;'>",
+        st.markdown("<hr style='margin:4px 0;border:none;border-top:1px solid #ECECEC;'>",
                     unsafe_allow_html=True)
 
     if _alerts:
