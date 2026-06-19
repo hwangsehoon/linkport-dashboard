@@ -1152,12 +1152,16 @@ elif page == "🏷️ 브랜드 분석":
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+    # 추이 차트 브랜드 선택 (매출/광고비 공통)
+    _sel = st.radio("브랜드 선택", ["전체"] + main_brands, horizontal=True, key="brand_trend_sel")
+    _show = main_brands if _sel == "전체" else [_sel]
+
     # 브랜드별 매출 추이
     st.markdown('<div class="section-title">브랜드별 매출 추이</div>', unsafe_allow_html=True)
     daily_brand = bs.groupby(["날짜", "_브랜드"]).agg({"매출": "sum"}).reset_index()
     if not daily_brand.empty:
         fig = go.Figure()
-        for brand in main_brands:
+        for brand in _show:
             bd = daily_brand[daily_brand["_브랜드"] == brand]
             if not bd.empty:
                 fig.add_trace(go.Scatter(
@@ -1169,14 +1173,14 @@ elif page == "🏷️ 브랜드 분석":
         fig = apply_plotly_theme(fig)
         fig = apply_korean_yaxis(fig)
         fig.update_layout(height=350)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
     # 브랜드별 광고비 추이
     st.markdown('<div class="section-title">브랜드별 광고비 추이</div>', unsafe_allow_html=True)
     daily_brand_ad = ba.groupby(["날짜", "_브랜드"]).agg({"광고비": "sum"}).reset_index()
     if not daily_brand_ad.empty:
         fig2 = go.Figure()
-        for brand in main_brands:
+        for brand in _show:
             bd = daily_brand_ad[daily_brand_ad["_브랜드"] == brand]
             if not bd.empty:
                 fig2.add_trace(go.Bar(
@@ -1188,7 +1192,7 @@ elif page == "🏷️ 브랜드 분석":
         fig2 = apply_plotly_theme(fig2)
         fig2 = apply_korean_yaxis(fig2)
         fig2.update_layout(barmode="stack", height=350)
-        st.plotly_chart(fig2, use_container_width=True)
+        st.plotly_chart(fig2, use_container_width=True, config={"displayModeBar": False})
 
 
 # ══════════════════════════════════════════════
