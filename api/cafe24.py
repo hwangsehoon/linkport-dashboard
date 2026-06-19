@@ -270,17 +270,32 @@ def fetch_all_cafe24(start_date: date, end_date: date) -> pd.DataFrame:
         sales_df = client.fetch_sales(start_date, end_date)
         visitors_df = client.fetch_visitors(start_date, end_date)
 
-        if not sales_df.empty and not visitors_df.empty:
-            merged = sales_df.merge(visitors_df, on=["날짜", "스토어"], how="left")
-            merged["순방문자수"] = merged["순방문자수"].fillna(0).astype(int)
-            merged["전환율"] = (
-                merged["주문건수"] / merged["순방문자수"].replace(0, 1) * 100
-            ).round(2)
-            all_dfs.append(merged)
-        elif not sales_df.empty:
-            sales_df["순방문자수"] = 0
-            sales_df["전환율"] = 0.0
-            all_dfs.append(sales_df)
+        if sales_df.empty and visitors_df.empty:
+            continue
+
+        # 매출+방문자 outer 병합 — 주문 0건이라도 방문자만 있으면 보존
+        # (주문 없는 날/방문자만 있는 스토어가 누락되던 버그 수정)
+        if sales_df.empty:
+            merged = visitors_df.copy()
+            merged["채널"] = "카페24"
+            merged["주문건수"] = 0
+            merged["매출"] = 0
+            merged["객단가"] = 0
+        elif visitors_df.empty:
+            merged = sales_df.copy()
+            merged["순방문자수"] = 0
+        else:
+            merged = sales_df.merge(visitors_df, on=["날짜", "스토어"], how="outer")
+
+        # 결측 보정 (한쪽에만 있던 날짜)
+        merged["채널"] = merged["채널"].fillna("카페24")
+        for _c in ["주문건수", "매출", "객단가", "순방문자수"]:
+            if _c in merged.columns:
+                merged[_c] = merged[_c].fillna(0).astype(int)
+        merged["전환율"] = (
+            merged["주문건수"] / merged["순방문자수"].replace(0, 1) * 100
+        ).round(2)
+        all_dfs.append(merged)
 
     if all_dfs:
         return pd.concat(all_dfs, ignore_index=True)
