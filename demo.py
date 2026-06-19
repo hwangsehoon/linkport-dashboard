@@ -1286,6 +1286,36 @@ elif page == "🏪 채널 분석":
     store_summary = store_summary.sort_values("매출", ascending=False).reset_index(drop=True)
     store_summary["매출비중"] = (store_summary["매출"] / store_summary["매출"].sum() * 100).round(1)
 
+    # 두 곳(매출 비중·기간 요약)에서 동일한 표 UI를 쓰도록 HTML을 한 번만 생성
+    def _store_table_html(df):
+        _rows = ""
+        for _, row in df.iterrows():
+            _store = row["스토어"]
+            _sale = int(row["매출"])
+            _ord = int(row["주문건수"])
+            _aov = int(_sale / _ord) if _ord else 0
+            _shr = float(row["매출비중"])
+            _scol = STORE_COLORS.get(_store, "#A8A29E")
+            _rows += (
+                "<tr style='border-bottom:1px solid #ECECEC;'>"
+                f"<td style='padding:10px 8px;font-weight:600;color:#2D2B28;'><span style='color:{_scol};'>●</span> {_store}</td>"
+                f"<td style='padding:10px 8px;text-align:right;font-weight:600;color:#2D2B28;'>₩{_sale:,}</td>"
+                f"<td style='padding:10px 8px;text-align:right;color:#2D2B28;'>{_ord:,}건</td>"
+                f"<td style='padding:10px 8px;text-align:right;color:#2D2B28;'>₩{_aov:,}</td>"
+                f"<td style='padding:10px 8px;text-align:right;color:#2D2B28;'>{_shr:.1f}%</td>"
+                "</tr>"
+            )
+        return (
+            "<table style='width:100%;border-collapse:collapse;font-size:0.95rem;'>"
+            "<thead><tr style='border-bottom:2px solid #E0DBD2;'>"
+            "<th style='padding:8px;text-align:left;color:#8C8680;font-weight:500;font-size:.82rem;'>스토어</th>"
+            "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.82rem;'>매출</th>"
+            "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.82rem;'>주문건수</th>"
+            "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.82rem;'>객단가</th>"
+            "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.82rem;'>매출비중</th>"
+            "</tr></thead><tbody>" + _rows + "</tbody></table>"
+        )
+
     col_chart, col_tbl = st.columns([1, 2])
     with col_chart:
         if not store_summary.empty:
@@ -1304,42 +1334,7 @@ elif page == "🏪 채널 분석":
             st.plotly_chart(fig, use_container_width=True)
     with col_tbl:
         if not store_summary.empty:
-            display_ss = store_summary.copy()
-            display_ss["매출"] = display_ss["매출"].apply(lambda x: f"₩{int(x):,}")
-            display_ss["객단가"] = (store_summary["매출"].astype(float) / store_summary["주문건수"].replace(0, 1)).astype(int).apply(lambda x: f"₩{x:,}")
-            display_ss["매출비중"] = display_ss["매출비중"].apply(lambda x: f"{x}%")
-            st.dataframe(display_ss, width="stretch", hide_index=True)
-
-    # 스토어별 기간 요약
-    st.markdown('<div class="section-title">스토어별 기간 요약</div>', unsafe_allow_html=True)
-    if not store_summary.empty:
-        _srows = ""
-        for _, row in store_summary.iterrows():
-            _store = row["스토어"]
-            _sale = int(row["매출"])
-            _ord = int(row["주문건수"])
-            _aov = int(_sale / _ord) if _ord else 0
-            _shr = float(row["매출비중"])
-            _scol = STORE_COLORS.get(_store, "#A8A29E")
-            _srows += (
-                "<tr style='border-bottom:1px solid #ECECEC;'>"
-                f"<td style='padding:10px 8px;font-weight:600;color:#2D2B28;'><span style='color:{_scol};'>●</span> {_store}</td>"
-                f"<td style='padding:10px 8px;text-align:right;font-weight:600;color:#2D2B28;'>₩{_sale:,}</td>"
-                f"<td style='padding:10px 8px;text-align:right;color:#2D2B28;'>{_ord:,}건</td>"
-                f"<td style='padding:10px 8px;text-align:right;color:#2D2B28;'>₩{_aov:,}</td>"
-                f"<td style='padding:10px 8px;text-align:right;color:#2D2B28;'>{_shr:.1f}%</td>"
-                "</tr>"
-            )
-        st.markdown(
-            "<table style='width:100%;border-collapse:collapse;font-size:0.95rem;'>"
-            "<thead><tr style='border-bottom:2px solid #E0DBD2;'>"
-            "<th style='padding:8px;text-align:left;color:#8C8680;font-weight:500;font-size:.82rem;'>스토어</th>"
-            "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.82rem;'>매출</th>"
-            "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.82rem;'>주문건수</th>"
-            "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.82rem;'>객단가</th>"
-            "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.82rem;'>매출비중</th>"
-            "</tr></thead><tbody>" + _srows + "</tbody></table>",
-            unsafe_allow_html=True)
+            st.markdown(_store_table_html(store_summary), unsafe_allow_html=True)
 
     # 스토어별 매출 추이
     st.markdown('<div class="section-title">스토어별 매출 추이</div>', unsafe_allow_html=True)
