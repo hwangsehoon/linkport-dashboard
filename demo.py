@@ -1265,10 +1265,10 @@ elif page == "🏪 채널 분석":
     """, unsafe_allow_html=True)
 
     today = _today_kst()
-    period_map = {"최근 3개월": 90, "최근 6개월": 180, "최근 1년": 365, "직접 설정": 0}
+    period_map = {"최근 1주일": 7, "최근 1개월": 30, "최근 3개월": 90, "최근 6개월": 180, "최근 1년": 365, "직접 설정": 0}
     col_p, col_f, col_t = st.columns([1, 1, 1])
     with col_p:
-        ch_period = st.selectbox("기간", list(period_map.keys()), index=0, key="ch_period")
+        ch_period = st.selectbox("기간", list(period_map.keys()), index=2, key="ch_period")
     if ch_period == "직접 설정":
         with col_f:
             ch_from = st.date_input("시작", today - timedelta(90), key="ch_from", format="YYYY/MM/DD")
@@ -1283,6 +1283,7 @@ elif page == "🏪 채널 분석":
     # 스토어별 매출 비중
     st.markdown('<div class="section-title">스토어별 매출 비중</div>', unsafe_allow_html=True)
     store_summary = ds.groupby("스토어").agg({"매출": "sum", "주문건수": "sum"}).reset_index()
+    store_summary = store_summary.sort_values("매출", ascending=False).reset_index(drop=True)
     store_summary["매출비중"] = (store_summary["매출"] / store_summary["매출"].sum() * 100).round(1)
 
     col_chart, col_tbl = st.columns([1, 2])
@@ -1361,19 +1362,33 @@ elif page == "🏪 채널 분석":
     # 스토어별 기간 요약
     st.markdown('<div class="section-title">스토어별 기간 요약</div>', unsafe_allow_html=True)
     if not store_summary.empty:
-        cols = st.columns(min(len(store_summary), 5))
-        for i, (_, row) in enumerate(store_summary.iterrows()):
-            with cols[i % 5]:
-                st.markdown(f"""
-                <div style='background: #FFFFFF; border: 1px solid #E8E4DE; border-radius: 12px;
-                            padding: 16px; border-top: 3px solid {STORE_COLORS.get(row["스토어"], "#A8A29E")};'>
-                    <div style='font-size: 0.85rem; font-weight: 600; color: #3D3B38; margin-bottom: 8px;'>{row["스토어"]}</div>
-                </div>
-                """, unsafe_allow_html=True)
-                st.metric("매출", fmt(row["매출"]))
-                st.metric("주문건수", f"{int(row['주문건수']):,}건")
-                aov = int(row["매출"] / max(1, row["주문건수"]))
-                st.metric("객단가", fmt(aov))
+        _srows = ""
+        for _, row in store_summary.iterrows():
+            _store = row["스토어"]
+            _sale = int(row["매출"])
+            _ord = int(row["주문건수"])
+            _aov = int(_sale / _ord) if _ord else 0
+            _shr = float(row["매출비중"])
+            _scol = STORE_COLORS.get(_store, "#A8A29E")
+            _srows += (
+                "<tr style='border-bottom:1px solid #ECECEC;'>"
+                f"<td style='padding:10px 8px;font-weight:600;color:#2D2B28;'><span style='color:{_scol};'>●</span> {_store}</td>"
+                f"<td style='padding:10px 8px;text-align:right;font-weight:600;color:#2D2B28;'>₩{_sale:,}</td>"
+                f"<td style='padding:10px 8px;text-align:right;color:#2D2B28;'>{_ord:,}건</td>"
+                f"<td style='padding:10px 8px;text-align:right;color:#2D2B28;'>₩{_aov:,}</td>"
+                f"<td style='padding:10px 8px;text-align:right;color:#2D2B28;'>{_shr:.1f}%</td>"
+                "</tr>"
+            )
+        st.markdown(
+            "<table style='width:100%;border-collapse:collapse;font-size:0.95rem;'>"
+            "<thead><tr style='border-bottom:2px solid #E0DBD2;'>"
+            "<th style='padding:8px;text-align:left;color:#8C8680;font-weight:500;font-size:.82rem;'>스토어</th>"
+            "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.82rem;'>매출</th>"
+            "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.82rem;'>주문건수</th>"
+            "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.82rem;'>객단가</th>"
+            "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.82rem;'>매출비중</th>"
+            "</tr></thead><tbody>" + _srows + "</tbody></table>",
+            unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════
