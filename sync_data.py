@@ -44,8 +44,10 @@ def _sync_coupang_ads(days):
         print(f"  쿠팡 광고 실패: {e}")
 
 
-def _dates_to_fetch(service, start, end, force_recent_days=3):
-    """fetch_log에 있어도 최근 N일은 항상 재수집 (당일 부분 데이터 갱신용)"""
+def _dates_to_fetch(service, start, end, force_recent_days=7):
+    """fetch_log에 있어도 최근 N일은 항상 재수집 (당일 부분 데이터 갱신/일시 누락 자가복구용).
+    동기화 당시 API가 빈 응답을 줬는데 '수집됨'으로 기록돼 누락이 굳는 것을 막기 위해
+    최근 1주일은 매번 다시 받아온다."""
     missing = set(get_missing_dates(service, start, end))
     force_from = max(start, date.today() - timedelta(days=force_recent_days))
     cur = force_from
