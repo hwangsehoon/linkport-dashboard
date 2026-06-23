@@ -328,6 +328,14 @@ st.markdown("""
         border-radius: 8px !important;
     }
 
+    /* selectbox 드롭다운: 스크롤 없이 모든 옵션이 한 번에 보이게 높이 제한 해제 */
+    div[data-baseweb="popover"] ul[role="listbox"],
+    div[data-baseweb="popover"] [data-baseweb="menu"],
+    div[data-baseweb="popover"] [data-baseweb="menu"] > div,
+    ul[data-baseweb="menu"] {
+        max-height: none !important;
+    }
+
     /* 섹션 카드 느낌 */
     .section-card {
         background: #FFFFFF;
@@ -631,6 +639,18 @@ def kpi_card(label, value, delta_pct=None, spark=None, target_pct=None,
     )
     st.markdown(html, unsafe_allow_html=True)
 
+def _quick_period(label, today):
+    """빠른 기간 선택(오늘/어제/최근 3일) → (시작, 종료). 해당 없으면 None."""
+    if label == "오늘":
+        return today, today
+    if label == "어제":
+        _y = today - timedelta(days=1)
+        return _y, _y
+    if label == "최근 3일":
+        return today - timedelta(days=2), today   # 오늘 포함 3일
+    return None
+
+
 def get_daily(date_from, date_to, store_filter=None):
     ds = df_sales[(df_sales["날짜"] >= date_from) & (df_sales["날짜"] <= date_to)]
     if store_filter and store_filter != "전체":
@@ -922,7 +942,7 @@ if page == "📊 대시보드":
     # 매출/광고비 추이 — 보고 싶은 지표만 선 하나씩 (깔끔)
     st.markdown('<div class="section-title">매출 / 광고비 추이</div>', unsafe_allow_html=True)
     _TCOL = {"매출": "#D97757", "광고비": "#8C8680", "ROAS": "#7B8DBF", "B.ROAS": "#4A8C5F"}
-    period_options = {"최근 7일": 7, "최근 14일": 14, "최근 30일": 30, "최근 90일": 90, "직접 설정": 0}
+    period_options = {"오늘": 0, "어제": 0, "최근 3일": 3, "최근 7일": 7, "최근 14일": 14, "최근 30일": 30, "최근 90일": 90, "직접 설정": 0}
     _cw = st.columns([0.7, 0.7, 0.9, 0.8, 0.9, 1.6])
     _all = _cw[0].checkbox("전체", key="dash_all")
     _r = _cw[1].checkbox("매출", value=True, key="dash_c_rev")
@@ -930,8 +950,11 @@ if page == "📊 대시보드":
     _o = _cw[3].checkbox("ROAS", key="dash_c_roas")
     _b = _cw[4].checkbox("B.ROAS", key="dash_c_broas")
     with _cw[5]:
-        period_sel = st.selectbox("기간", list(period_options.keys()), index=2, key="dash_period", label_visibility="collapsed")
-    if period_sel == "직접 설정":
+        period_sel = st.selectbox("기간", list(period_options.keys()), index=5, key="dash_period", label_visibility="collapsed")
+    _q = _quick_period(period_sel, today)
+    if _q:
+        d_from, d_to = _q
+    elif period_sel == "직접 설정":
         _f1, _f2 = st.columns(2)
         with _f1:
             d_from = st.date_input("시작", today - timedelta(30), key="dash_from", format="YYYY/MM/DD")
@@ -1079,11 +1102,21 @@ elif page == "🏷️ 브랜드 분석":
     """, unsafe_allow_html=True)
 
     # 기간 선택
-    col1, col2 = st.columns(2)
-    with col1:
-        b_from = st.date_input("시작일", _today_kst() - timedelta(30), key="brand_from", format="YYYY/MM/DD")
-    with col2:
-        b_to = st.date_input("종료일", _today_kst(), key="brand_to", format="YYYY/MM/DD")
+    _btoday = _today_kst()
+    _bdays = {"최근 7일": 7, "최근 30일": 30, "최근 90일": 90}
+    _bopts = ["오늘", "어제", "최근 3일"] + list(_bdays) + ["직접 설정"]
+    _bsel = st.selectbox("기간", _bopts, index=4, key="brand_period")  # 기본 최근 30일
+    _bq = _quick_period(_bsel, _btoday)
+    if _bq:
+        b_from, b_to = _bq
+    elif _bsel == "직접 설정":
+        col1, col2 = st.columns(2)
+        with col1:
+            b_from = st.date_input("시작일", _btoday - timedelta(30), key="brand_from", format="YYYY/MM/DD")
+        with col2:
+            b_to = st.date_input("종료일", _btoday, key="brand_to", format="YYYY/MM/DD")
+    else:
+        b_from, b_to = _btoday - timedelta(_bdays[_bsel]), _btoday
 
     # 브랜드별 매출 집계 (카페24=스토어명, 스마트스토어=아자차, 쿠팡=브랜드 컬럼)
     bs = df_sales[(df_sales["날짜"] >= b_from) & (df_sales["날짜"] <= b_to)].copy()
@@ -1187,10 +1220,13 @@ elif page == "🏷️ 브랜드 분석":
     _show = main_brands if _sel == "전체" else [_sel]
     _today = _today_kst()
     _PER = {"최근 7일": 7, "최근 14일": 14, "최근 30일": 30, "최근 90일": 90}
-    _POPTS = list(_PER) + ["직접 설정"]
+    _POPTS = ["오늘", "어제", "최근 3일"] + list(_PER) + ["직접 설정"]
 
     def _chart_range(label, key):
         """기간 라벨 → (시작, 종료). '직접 설정'이면 날짜 선택기를 보여줌."""
+        _q = _quick_period(label, _today)
+        if _q:
+            return _q
         if label == "직접 설정":
             _d1, _d2 = st.columns(2)
             with _d1:
@@ -1205,7 +1241,7 @@ elif page == "🏷️ 브랜드 분석":
     with _ct1:
         st.markdown('<div class="section-title">브랜드별 매출 추이</div>', unsafe_allow_html=True)
     with _cp1:
-        _pm = st.selectbox("기간", _POPTS, index=2, key="trend_sales_per", label_visibility="collapsed")
+        _pm = st.selectbox("기간", _POPTS, index=5, key="trend_sales_per", label_visibility="collapsed")
     _sm, _em = _chart_range(_pm, "trend_sales")
     _ds = df_sales[(df_sales["날짜"] >= _sm) & (df_sales["날짜"] <= _em)].copy()
     if not _ds.empty:
@@ -1231,7 +1267,7 @@ elif page == "🏷️ 브랜드 분석":
     with _ct2:
         st.markdown('<div class="section-title">브랜드별 광고비 추이</div>', unsafe_allow_html=True)
     with _cp2:
-        _pa = st.selectbox("기간", _POPTS, index=2, key="trend_ad_per", label_visibility="collapsed")
+        _pa = st.selectbox("기간", _POPTS, index=5, key="trend_ad_per", label_visibility="collapsed")
     _sa2, _ea2 = _chart_range(_pa, "trend_ad")
     _da = df_ads[(df_ads["날짜"] >= _sa2) & (df_ads["날짜"] <= _ea2)].copy()
     if not _da.empty:
@@ -1265,11 +1301,14 @@ elif page == "🏪 채널 분석":
     """, unsafe_allow_html=True)
 
     today = _today_kst()
-    period_map = {"최근 7일": 7, "최근 30일": 30, "최근 90일": 90, "최근 180일": 180, "최근 365일": 365, "직접 설정": 0}
+    period_map = {"오늘": 0, "어제": 0, "최근 3일": 3, "최근 7일": 7, "최근 30일": 30, "최근 90일": 90, "최근 180일": 180, "최근 365일": 365, "직접 설정": 0}
     col_p, col_f, col_t = st.columns([1, 1, 1])
     with col_p:
-        ch_period = st.selectbox("기간", list(period_map.keys()), index=2, key="ch_period")
-    if ch_period == "직접 설정":
+        ch_period = st.selectbox("기간", list(period_map.keys()), index=5, key="ch_period")
+    _q = _quick_period(ch_period, today)
+    if _q:
+        ch_from, ch_to = _q
+    elif ch_period == "직접 설정":
         with col_f:
             ch_from = st.date_input("시작", today - timedelta(90), key="ch_from", format="YYYY/MM/DD")
         with col_t:
