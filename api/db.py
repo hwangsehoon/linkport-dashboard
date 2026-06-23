@@ -135,10 +135,17 @@ def save_sales(df: pd.DataFrame):
         ))
     psycopg2.extras.execute_values(
         cur,
+        # 빈 응답(매출0·주문0 — 방문자만 있거나 일시적 API 실패)이 들어와도
+        # 기존 정상 매출을 0으로 덮어쓰지 않는다. 매출/주문이 실제로 있을 때만 갱신.
+        # (순방문자수는 항상 갱신 — 방문자만 있는 날도 채워야 하므로)
         """INSERT INTO sales (날짜,스토어,채널,주문건수,매출,객단가,순방문자수,전환율,브랜드)
            VALUES %s ON CONFLICT (날짜,스토어,브랜드) DO UPDATE SET
-           채널=EXCLUDED.채널, 주문건수=EXCLUDED.주문건수, 매출=EXCLUDED.매출,
-           객단가=EXCLUDED.객단가, 순방문자수=EXCLUDED.순방문자수, 전환율=EXCLUDED.전환율""",
+           채널=EXCLUDED.채널,
+           주문건수=CASE WHEN EXCLUDED.매출>0 OR EXCLUDED.주문건수>0 THEN EXCLUDED.주문건수 ELSE sales.주문건수 END,
+           매출    =CASE WHEN EXCLUDED.매출>0 OR EXCLUDED.주문건수>0 THEN EXCLUDED.매출    ELSE sales.매출    END,
+           객단가  =CASE WHEN EXCLUDED.매출>0 OR EXCLUDED.주문건수>0 THEN EXCLUDED.객단가  ELSE sales.객단가  END,
+           순방문자수=EXCLUDED.순방문자수,
+           전환율  =CASE WHEN EXCLUDED.매출>0 OR EXCLUDED.주문건수>0 THEN EXCLUDED.전환율 ELSE sales.전환율 END""",
         rows, page_size=500
     )
     conn.commit()
