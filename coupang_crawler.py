@@ -33,7 +33,9 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import subprocess
 import sys
+import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -200,10 +202,31 @@ def _dates_to_fetch(days: int, lookback: int) -> list[date]:
     return sorted(d for d in missing if d <= today)
 
 
+def _kill_leftover_chrome() -> None:
+    """이전 실행에서 안 닫히고 남은(about:blank 등) coupang_profile Chrome을 정리한다.
+    남은 보이지 않는 창이 프로필을 잠그면 로그인 세션이 '만료'로 잘못 읽히는 문제를 막는다.
+    (Windows 전용 — 크롤러는 로컬 Windows PC에서만 실행됨)"""
+    if sys.platform != "win32":
+        return
+    ps = (
+        "Get-CimInstance Win32_Process -Filter \"Name='chrome.exe'\" | "
+        "Where-Object { $_.CommandLine -like '*coupang_profile*' } | "
+        "ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
+    )
+    try:
+        subprocess.run(["powershell", "-NoProfile", "-Command", ps],
+                       timeout=20, capture_output=True)
+        time.sleep(1.5)  # 프로필 잠금(SingletonLock) 해제 대기
+        logger.info("잔여 coupang_profile Chrome 정리 완료")
+    except Exception as e:
+        logger.warning(f"잔여 Chrome 정리 실패(무시하고 진행): {e}")
+
+
 def crawl(days: int, auto: bool, lookback: int = 30) -> None:
     """auto=True: 창을 화면 밖으로 숨김(스케줄러/sync용). auto=False: 창 표시(디버깅용).
     어느 쪽이든 세션이 없으면 예외 — 로그인은 coupang_login.bat로만 한다.
     쿠팡이 헤드리스를 차단하므로 항상 헤드풀 + 진짜 Chrome으로 띄운다."""
+    _kill_leftover_chrome()  # 잔여 창이 프로필을 잠가 '세션 만료'로 오인되는 것 방지
     targets = _dates_to_fetch(days, lookback)
     logger.info(f"수집 대상 {len(targets)}일 "
                 f"(최근 {days}일 + 최근 {lookback}일 내 누락분), auto={auto}")
