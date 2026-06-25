@@ -1012,6 +1012,13 @@ if page == "📊 대시보드":
             display_ch["매출"] = display_ch["매출"].apply(lambda x: f"₩{int(x):,}")
             display_ch["객단가"] = display_ch["객단가"].apply(lambda x: f"₩{int(x):,}")
             display_ch["매출비중"] = display_ch["매출비중"].apply(lambda x: f"{x}%")
+            # 맨 아래 합계 행 (선택 기간 매출/주문 합계)
+            _tot_rev = int(ch["매출"].sum()); _tot_ord = int(ch["주문건수"].sum())
+            _tot_aov = int(_tot_rev / _tot_ord) if _tot_ord else 0
+            display_ch = pd.concat([display_ch, pd.DataFrame([{
+                "스토어": "합계", "매출": f"₩{_tot_rev:,}", "주문건수": _tot_ord,
+                "객단가": f"₩{_tot_aov:,}", "매출비중": "100%",
+            }])], ignore_index=True)
             st.dataframe(display_ch, width="stretch", hide_index=True)
             download_csv_button(ch, f"스토어매출_{d_from}_{d_to}.csv", key="dash_dl_store")
         with col_pie:
