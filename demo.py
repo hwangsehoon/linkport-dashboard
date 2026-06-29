@@ -769,7 +769,7 @@ with st.sidebar:
 
     page = st.radio(
         "메뉴",
-        ["📊 대시보드", "🏷️ 브랜드 분석", "🏪 채널 분석", "⚙️ 설정"],
+        ["📊 대시보드", "🏷️ 브랜드 분석", "🏪 채널 분석", "📦 반품 분석", "⚙️ 설정"],
         label_visibility="collapsed",
     )
 
@@ -1430,6 +1430,116 @@ elif page == "🏪 채널 분석":
         fig3 = apply_korean_yaxis(fig3)
         fig3.update_layout(height=350)
         st.plotly_chart(fig3, use_container_width=True)
+
+
+# ══════════════════════════════════════════════
+# PAGE: 반품 분석 (카페24+스마트스토어+쿠팡일반 / 쿠팡 로켓 제외)
+# ══════════════════════════════════════════════
+elif page == "📦 반품 분석":
+    from api.returns import load_monthly_returns
+    st.markdown("""
+    <div style='margin-bottom: 4px;'>
+        <span style='font-size: 1.6rem; font-weight: 700; color: #2D2B28;'>반품 분석</span>
+    </div>""", unsafe_allow_html=True)
+    # 쿠팡 로켓 제외 — 반드시 명시
+    st.markdown("""
+    <div style='background:#FBEEEC;border:1px solid #E8C9C2;border-radius:8px;
+                padding:8px 14px;margin:6px 0 16px;color:#B1442F;font-size:.86rem;'>
+      ⚠ <b>쿠팡은 '로켓그로스' 제외</b>, '일반(셀러배송)' 반품만 포함됩니다.
+      (로켓 반품은 쿠팡 표준 API 미제공 — 윙에서만 확인 가능)
+    </div>""", unsafe_allow_html=True)
+
+    _ry = st.selectbox("연도", [2026, 2025], index=0, key="ret_year")
+    _rdf = load_monthly_returns(_ry)
+
+    if _rdf.empty:
+        st.info("아직 수집된 반품 데이터가 없습니다. (로컬 동기화에서 수집됩니다)")
+    else:
+        def _rate(b, t):
+            return (b / t * 100) if t else 0.0
+
+        def _ret_table(group_df, label_col):
+            _rows = ""
+            g = group_df.groupby(label_col).agg(구매=("구매건수", "sum"),
+                                                반품=("반품건수", "sum")).reset_index()
+            g = g.sort_values("구매", ascending=False)
+            for _, r in g.iterrows():
+                _b, _t = int(r["반품"]), int(r["구매"])
+                _rt = _rate(_b, _t)
+                _rc = "#B1442F" if _rt >= 5 else "#2D2B28"
+                _rows += ("<tr style='border-bottom:1px solid #ECECEC;'>"
+                          f"<td style='padding:9px 8px;font-weight:600;color:#2D2B28;'>{r[label_col]}</td>"
+                          f"<td style='padding:9px 8px;text-align:right;color:#2D2B28;'>{_t:,}건</td>"
+                          f"<td style='padding:9px 8px;text-align:right;color:#2D2B28;'>{_b:,}건</td>"
+                          f"<td style='padding:9px 8px;text-align:right;font-weight:600;color:{_rc};'>{_rt:.1f}%</td>"
+                          "</tr>")
+            # 합계
+            _tt, _tb = int(g["구매"].sum()), int(g["반품"].sum())
+            _rows += ("<tr style='border-top:2px solid #E0DBD2;'>"
+                      "<td style='padding:9px 8px;font-weight:700;'>합계</td>"
+                      f"<td style='padding:9px 8px;text-align:right;font-weight:700;'>{_tt:,}건</td>"
+                      f"<td style='padding:9px 8px;text-align:right;font-weight:700;'>{_tb:,}건</td>"
+                      f"<td style='padding:9px 8px;text-align:right;font-weight:700;'>{_rate(_tb,_tt):.1f}%</td></tr>")
+            return ("<table style='width:100%;border-collapse:collapse;font-size:0.95rem;'>"
+                    "<thead><tr style='border-bottom:2px solid #E0DBD2;'>"
+                    f"<th style='padding:8px;text-align:left;color:#8C8680;font-weight:500;font-size:.82rem;'>{label_col}</th>"
+                    "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.82rem;'>구매</th>"
+                    "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.82rem;'>반품</th>"
+                    "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.82rem;'>반품률</th>"
+                    "</tr></thead><tbody>" + _rows + "</tbody></table>")
+
+        # 요약 헤드라인
+        _tb = int(_rdf["반품건수"].sum()); _tt = int(_rdf["구매건수"].sum())
+        st.markdown(f"""
+        <div style='margin:2px 0 18px;'>
+          <span style='font-size:2.0rem;font-weight:700;color:#2D2B28;'>반품률 {_rate(_tb,_tt):.1f}%</span>
+          <span style='color:#8C8680;font-size:.92rem;margin-left:12px;'>
+          {_ry}년 구매 {_tt:,}건 · 반품 {_tb:,}건</span>
+        </div>""", unsafe_allow_html=True)
+
+        _c1, _c2 = st.columns(2)
+        with _c1:
+            st.markdown('<div class="section-title">채널별 반품</div>', unsafe_allow_html=True)
+            st.markdown(_ret_table(_rdf, "채널"), unsafe_allow_html=True)
+        with _c2:
+            st.markdown('<div class="section-title">브랜드별 반품</div>', unsafe_allow_html=True)
+            # 쿠팡(일반)은 브랜드 '전체'(미상)라 브랜드표에선 제외 — 실제 카페24/스마트스토어 기준
+            _bdf = _rdf[_rdf["브랜드"].isin(["아자차", "반드럽", "웰바이오젠"])]
+            if _bdf.empty:
+                st.caption("브랜드 구분 데이터 없음")
+            else:
+                st.markdown(_ret_table(_bdf, "브랜드"), unsafe_allow_html=True)
+            st.caption("※ 쿠팡(일반)은 브랜드 구분이 없어 채널 표에만 포함")
+
+        # 월별 표 + 차트
+        st.markdown('<div class="section-title">월별 추이</div>', unsafe_allow_html=True)
+        _m = _rdf.groupby("월").agg(구매=("구매건수", "sum"), 반품=("반품건수", "sum")).reset_index().sort_values("월")
+        _m["반품률"] = (_m["반품"] / _m["구매"].replace(0, 1) * 100).round(1)
+        _mt1, _mt2 = st.columns([1, 1])
+        with _mt1:
+            _mrows = ""
+            for _, r in _m.iterrows():
+                _mrows += ("<tr style='border-bottom:1px solid #ECECEC;'>"
+                           f"<td style='padding:8px;font-weight:600;'>{int(r['월'])}월</td>"
+                           f"<td style='padding:8px;text-align:right;'>{int(r['구매']):,}</td>"
+                           f"<td style='padding:8px;text-align:right;'>{int(r['반품']):,}</td>"
+                           f"<td style='padding:8px;text-align:right;font-weight:600;'>{r['반품률']:.1f}%</td></tr>")
+            st.markdown("<table style='width:100%;border-collapse:collapse;font-size:0.92rem;'>"
+                        "<thead><tr style='border-bottom:2px solid #E0DBD2;'>"
+                        "<th style='padding:8px;text-align:left;color:#8C8680;font-weight:500;font-size:.8rem;'>월</th>"
+                        "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.8rem;'>구매</th>"
+                        "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.8rem;'>반품</th>"
+                        "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.8rem;'>반품률</th>"
+                        "</tr></thead><tbody>" + _mrows + "</tbody></table>", unsafe_allow_html=True)
+        with _mt2:
+            if not _m.empty:
+                _fig = go.Figure(go.Bar(x=[f"{int(x)}월" for x in _m["월"]], y=_m["반품률"],
+                                        marker_color="#D97757",
+                                        hovertemplate="%{x}<br>반품률 %{y:.1f}%<extra></extra>"))
+                _fig = apply_plotly_theme(_fig)
+                _fig.update_layout(height=300, margin=dict(l=10, r=10, t=20, b=10),
+                                   yaxis=dict(title="반품률 (%)", ticksuffix="%"))
+                st.plotly_chart(_fig, use_container_width=True)
 
 
 # ══════════════════════════════════════════════
