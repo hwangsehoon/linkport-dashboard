@@ -133,52 +133,79 @@ class CoupangClient:
         df["전환율"] = 0.0
         return df
 
+    # 마켓플레이스 주문 상태 (배송 단계별 — ACCEPT만 보면 배송완료 주문이 누락됨)
+    _MARKET_STATUSES = ["ACCEPT", "INSTRUCT", "DEPARTURE", "DELIVERING",
+                        "FINAL_DELIVERY", "NONE_TRACKING"]
+
     def fetch_marketplace(self, start_date: date, end_date: date) -> pd.DataFrame:
-        """일반 마켓플레이스 주문 조회"""
+        """일반(셀러배송) 마켓플레이스 주문 조회.
+        - 전체 배송상태를 조회해 orderId로 중복 제거 (ACCEPT만 받던 누락 수정)
+        - 금액은 orderItems의 orderPrice×shippingCount 합 (order-level orderPrice는 없음 → 0원 버그 수정)
+        - 브랜드는 sellerProductName/vendorItemName에서 자동 분류 (기타 일괄처리 수정)
+        """
         path = f"/v2/providers/openapi/apis/api/v4/vendors/{COUPANG_VENDOR_ID}/ordersheets"
-        all_orders = []
+        orders_by_id = {}  # orderId -> order (상태별 중복 제거)
 
         current_start = start_date
         while current_start <= end_date:
             current_end = min(current_start + timedelta(days=6), end_date)
-
-            query_params = {
-                "createdAtFrom": current_start.isoformat(),
-                "createdAtTo": current_end.isoformat(),
-                "status": "ACCEPT",
-            }
-
-            headers = self._generate_headers("GET", path, query_params)
-            query_string = urllib.parse.urlencode(query_params)
-            url = f"{self.BASE_URL}{path}?{query_string}"
-
-            try:
-                resp = requests.get(url, headers=headers, timeout=30)
-                if resp.status_code == 200:
-                    data = resp.json().get("data", [])
-                    if data:
-                        all_orders.extend(data)
-            except Exception as e:
-                print(f"[쿠팡 마켓] {current_start}~{current_end} 조회 실패: {e}")
-
+            for status in self._MARKET_STATUSES:
+                next_token = ""
+                while True:
+                    params = {
+                        "createdAtFrom": current_start.isoformat(),
+                        "createdAtTo": current_end.isoformat(),
+                        "status": status,
+                        "maxPerPage": 50,
+                    }
+                    if next_token:
+                        params["nextToken"] = next_token
+                    headers = self._generate_headers("GET", path, params)
+                    url = f"{self.BASE_URL}{path}?{urllib.parse.urlencode(params)}"
+                    try:
+                        resp = requests.get(url, headers=headers, timeout=30)
+                        if resp.status_code == 429:
+                            time.sleep(3)
+                            continue
+                        if resp.status_code != 200:
+                            break
+                        result = resp.json()
+                        for o in (result.get("data") or []):
+                            oid = o.get("orderId")
+                            if oid is not None:
+                                orders_by_id[oid] = o
+                        next_token = result.get("nextToken", "") or ""
+                        if not next_token:
+                            break
+                    except Exception as e:
+                        print(f"[쿠팡 마켓] {current_start}~{current_end} {status} 조회 실패: {e}")
+                        break
+                    time.sleep(0.3)
             current_start = current_end + timedelta(days=1)
-            time.sleep(0.3)
 
-        if not all_orders:
+        if not orders_by_id:
             return pd.DataFrame()
 
         rows = []
-        for order in all_orders:
-            order_date_str = order.get("orderedAt", "")[:10]
-            sale_price = int(order.get("orderPrice", 0))
-
+        for order in orders_by_id.values():
+            order_date_str = (order.get("paidAt") or order.get("orderedAt") or "")[:10]
+            if not order_date_str:
+                continue
+            items = order.get("orderItems") or []
+            sale_price = sum(int(it.get("orderPrice", 0) or 0) * int(it.get("shippingCount", 1) or 1)
+                             for it in items)
+            name = ""
+            for it in items:
+                name = it.get("sellerProductName") or it.get("vendorItemName") or ""
+                if name:
+                    break
             rows.append({
                 "날짜": pd.to_datetime(order_date_str).date(),
                 "스토어": "링포(쿠팡)",
                 "채널": "쿠팡",
                 "주문건수": 1,
                 "매출": sale_price,
-                "브랜드": "기타",
+                "브랜드": _detect_brand(name),
             })
 
         df = pd.DataFrame(rows)
