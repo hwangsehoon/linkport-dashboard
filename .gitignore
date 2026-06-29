@@ -33,3 +33,4 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+.returns_last

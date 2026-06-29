@@ -44,6 +44,34 @@ def _sync_coupang_ads(days):
         print(f"  쿠팡 광고 실패: {e}")
 
 
+# 반품 집계는 무거우므로(특히 스마트스토어 일자순회) 12시간에 한 번만
+RETURNS_MIN_INTERVAL_MIN = 60 * 12
+
+
+def _sync_returns():
+    """월별 반품 집계 — 현재 연도 최근 2개월 재집계(반품은 며칠 뒤 확정되므로).
+    쿠팡/스마트스토어 반품 API가 IP 제한이라 로컬에서만 실행."""
+    if os.getenv("GITHUB_ACTIONS"):
+        return  # 쿠팡·스마트스토어 IP 차단 — 로컬만
+    marker = Path(__file__).parent / ".returns_last"
+    if marker.exists() and (time.time() - marker.stat().st_mtime) < RETURNS_MIN_INTERVAL_MIN * 60:
+        return
+    try:
+        marker.write_text(str(time.time()))
+    except Exception:
+        pass
+    try:
+        from api.returns import collect_returns, save_monthly_returns
+        today = date.today()
+        months = sorted({max(1, today.month - 1), today.month})  # 최근 2개월
+        print(f"  반품 집계: {today.year}년 {months} 재집계 중...")
+        df = collect_returns(today.year, months, include_smartstore=True)
+        save_monthly_returns(df)
+        print(f"  반품 집계: {len(df)}행 저장")
+    except Exception as e:
+        print(f"  반품 집계 실패: {e}")
+
+
 def _dates_to_fetch(service, start, end, force_recent_days=7):
     """fetch_log에 있어도 최근 N일은 항상 재수집 (당일 부분 데이터 갱신/일시 누락 자가복구용).
     동기화 당시 API가 빈 응답을 줬는데 '수집됨'으로 기록돼 누락이 굳는 것을 막기 위해
@@ -139,6 +167,9 @@ def sync_recent(days=7):
 
     # 쿠팡 광고 (브라우저 크롤러 — 로컬에서만 실행됨)
     _sync_coupang_ads(days)
+
+    # 월별 반품 집계 (12시간 주기 — 로컬에서만)
+    _sync_returns()
 
     print("동기화 완료!")
 
