@@ -1541,6 +1541,42 @@ elif page == "📦 반품 분석":
                                    yaxis=dict(title="반품률 (%)", ticksuffix="%"))
                 st.plotly_chart(_fig, use_container_width=True)
 
+        # 월별 상세 — 채널별/브랜드별로 정확히 (셀=반품건수 / 행끝=반품률)
+        st.markdown('<div class="section-title">월별 상세 (채널·브랜드별)</div>', unsafe_allow_html=True)
+        _dim = st.radio("구분", ["채널별", "브랜드별"], horizontal=True, key="ret_dim",
+                        label_visibility="collapsed")
+        if _dim == "채널별":
+            _src = _rdf.copy(); _col = "채널"
+            st.caption("※ 쿠팡은 '일반(셀러배송)'만 — 로켓 제외")
+        else:
+            _src = _rdf[_rdf["브랜드"].isin(["아자차", "반드럽", "웰바이오젠"])].copy(); _col = "브랜드"
+            st.caption("※ 카페24+스마트스토어 기준 (쿠팡 일반은 브랜드 구분 없어 제외, 쿠팡 로켓도 제외)")
+        if not _src.empty:
+            _pr = _src.pivot_table(index="월", columns=_col, values="반품건수", aggfunc="sum", fill_value=0)
+            _pb = _src.pivot_table(index="월", columns=_col, values="구매건수", aggfunc="sum", fill_value=0)
+            _cols = list(_pr.columns)
+            _head = "".join(f"<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.8rem;'>{c}</th>" for c in _cols)
+            _body = ""
+            for _mo in sorted(_pr.index):
+                _cells = ""
+                for c in _cols:
+                    _rv = int(_pr.loc[_mo, c]); _bv = int(_pb.loc[_mo, c])
+                    _rt = (_rv / _bv * 100) if _bv else 0
+                    _cells += (f"<td style='padding:8px;text-align:right;color:#2D2B28;'>"
+                               f"{_rv}<span style='color:#A8A29E;font-size:.78rem;'> / {_rt:.1f}%</span></td>")
+                _trev = int(_pr.loc[_mo].sum()); _tbuy = int(_pb.loc[_mo].sum())
+                _trt = (_trev / _tbuy * 100) if _tbuy else 0
+                _body += ("<tr style='border-bottom:1px solid #ECECEC;'>"
+                          f"<td style='padding:8px;font-weight:600;'>{int(_mo)}월</td>" + _cells +
+                          f"<td style='padding:8px;text-align:right;font-weight:700;'>{_trev}건 ({_trt:.1f}%)</td></tr>")
+            st.markdown("<table style='width:100%;border-collapse:collapse;font-size:0.9rem;'>"
+                        "<thead><tr style='border-bottom:2px solid #E0DBD2;'>"
+                        "<th style='padding:8px;text-align:left;color:#8C8680;font-weight:500;font-size:.8rem;'>월</th>"
+                        + _head +
+                        "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.8rem;'>합계</th>"
+                        "</tr></thead><tbody>" + _body + "</tbody></table>", unsafe_allow_html=True)
+            st.caption("각 칸: 반품건수 / 반품률")
+
 
 # ══════════════════════════════════════════════
 # PAGE 5: 설정
