@@ -26,6 +26,29 @@ def _get_db_url():
 
 DB_URL = _get_db_url()
 
+# SQLAlchemy 엔진 (읽기 전용 조회용) — 싱글턴 + 연결 풀링.
+# ※ raw psycopg2 연결을 pandas.read_sql_query에 직접 넘기면 경고가 뜨고,
+#    배포(Streamlit Cloud)에서 며칠간 연결/메모리가 누수돼 Segfault로 죽는다.
+#    엔진으로 풀링하면 연결이 재사용·회수되어 누수가 사라진다.
+_ENGINE = None
+
+
+def _get_engine():
+    global _ENGINE
+    if _ENGINE is None:
+        from sqlalchemy import create_engine
+        url = DB_URL or _get_db_url()
+        if url.startswith("postgres://"):
+            url = "postgresql://" + url[len("postgres://"):]
+        _ENGINE = create_engine(
+            url,
+            pool_pre_ping=True,      # 끊긴 연결 자동 감지·교체
+            pool_recycle=300,        # Supabase 유휴 연결 드롭 대비(5분마다 재생성)
+            pool_size=2, max_overflow=3,
+            connect_args={"connect_timeout": 10},
+        )
+    return _ENGINE
+
 
 def _get_conn(retries: int = 2, delay: float = 1.0):
     """DB 연결. 일시적 연결 끊김(무료 tier hiccup·앱 깨어남)을 흡수하기 위해 재시도."""
@@ -183,26 +206,22 @@ def save_ads(df: pd.DataFrame):
 
 
 def load_sales(start_date: date, end_date: date) -> pd.DataFrame:
-    conn = _get_conn()
-    df = pd.read_sql_query(
-        "SELECT * FROM sales WHERE 날짜 >= %s AND 날짜 <= %s",
-        conn,
-        params=(start_date.isoformat(), end_date.isoformat()),
-    )
-    conn.close()
+    from sqlalchemy import text
+    with _get_engine().connect() as conn:
+        df = pd.read_sql_query(
+            text("SELECT * FROM sales WHERE 날짜 >= :s AND 날짜 <= :e"),
+            conn, params={"s": start_date.isoformat(), "e": end_date.isoformat()})
     if not df.empty:
         df["날짜"] = pd.to_datetime(df["날짜"]).dt.date
     return df
 
 
 def load_ads(start_date: date, end_date: date) -> pd.DataFrame:
-    conn = _get_conn()
-    df = pd.read_sql_query(
-        "SELECT * FROM ads WHERE 날짜 >= %s AND 날짜 <= %s",
-        conn,
-        params=(start_date.isoformat(), end_date.isoformat()),
-    )
-    conn.close()
+    from sqlalchemy import text
+    with _get_engine().connect() as conn:
+        df = pd.read_sql_query(
+            text("SELECT * FROM ads WHERE 날짜 >= :s AND 날짜 <= :e"),
+            conn, params={"s": start_date.isoformat(), "e": end_date.isoformat()})
     if not df.empty:
         df["날짜"] = pd.to_datetime(df["날짜"]).dt.date
     return df
