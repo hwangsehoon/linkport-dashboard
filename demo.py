@@ -20,6 +20,7 @@ import streamlit.components.v1 as components
 
 from config import is_configured
 from api.db import load_sales, load_ads
+from ui_korean_calendar import korean_calendar
 
 st.set_page_config(
     page_title="LINKPORT Dashboard",
@@ -28,30 +29,8 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# 날짜 선택 달력 팝업을 한글로 (월·요일 이름). Streamlit 기본은 브라우저 언어를 따르므로 JS로 번역.
-components.html("""
-<script>
-const M={January:'1월',February:'2월',March:'3월',April:'4월',May:'5월',June:'6월',
-July:'7월',August:'8월',September:'9월',October:'10월',November:'11월',December:'12월'};
-const W={Su:'일',Mo:'월',Tu:'화',We:'수',Th:'목',Fr:'금',Sa:'토'};
-function tr(){
-  try{
-    const doc=window.parent.document;
-    const cal=doc.querySelector('[data-baseweb="calendar"], [aria-label="Calendar."]');
-    if(!cal) return;
-    const w=doc.createTreeWalker(cal, NodeFilter.SHOW_TEXT);
-    let n;
-    while(n=w.nextNode()){
-      const t=(n.nodeValue||'').trim();
-      if(M[t]) n.nodeValue=M[t];
-      else if(W[t]) n.nodeValue=W[t];
-    }
-  }catch(e){}
-}
-new MutationObserver(tr).observe(window.parent.document.body,{childList:true,subtree:true});
-setInterval(tr,250);
-</script>
-""", height=0)
+# 날짜 선택 달력 팝업 한글화 (월·요일·월 선택 드롭다운). 자세한 내용은 모듈 참고.
+korean_calendar()
 
 # 모든 차트의 영어 도구막대(modebar)를 전역으로 숨김 (깔끔하게)
 _orig_plotly_chart = st.plotly_chart
@@ -775,14 +754,20 @@ with st.sidebar:
 
     st.divider()
 
-    # 자동 새로고침 (5분, 깜빡임 최소화)
-    _auto_refresh = st.toggle("자동 새로고침 (5분)", value=False, key="auto_refresh_toggle")
-    if _auto_refresh:
-        try:
-            from streamlit_autorefresh import st_autorefresh
-            st_autorefresh(interval=5 * 60 * 1000, key="autorefresher")
-        except ImportError:
-            st.caption("⚠ streamlit-autorefresh 미설치")
+    # 자동 새로고침 (5분) — 로컬 상시표시 전용.
+    # ※ 클라우드(Streamlit Cloud)에선 이걸 켜두면 며칠간 리로드가 쌓여 메모리 초과로
+    #    앱이 죽는다(Segmentation fault). 그래서 배포 환경에선 아예 막는다.
+    _IS_CLOUD = os.path.exists("/mount/src")
+    if _IS_CLOUD:
+        st.caption("자동 새로고침은 로컬 전용입니다. 최신 데이터는 위 새로고침 버튼을 눌러주세요.")
+    else:
+        _auto_refresh = st.toggle("자동 새로고침 (5분)", value=False, key="auto_refresh_toggle")
+        if _auto_refresh:
+            try:
+                from streamlit_autorefresh import st_autorefresh
+                st_autorefresh(interval=5 * 60 * 1000, key="autorefresher")
+            except ImportError:
+                st.caption("⚠ streamlit-autorefresh 미설치")
 
     # 다크 모드 토글
     _dark = st.toggle("🌙 다크 모드", value=False, key="dark_mode_toggle")
@@ -1461,10 +1446,11 @@ elif page == "📦 반품 분석":
         def _ret_table(group_df, label_col):
             _rows = ""
             g = group_df.groupby(label_col).agg(구매=("구매건수", "sum"),
-                                                반품=("반품건수", "sum")).reset_index()
+                                                반품=("반품건수", "sum"),
+                                                취소=("취소건수", "sum")).reset_index()
             g = g.sort_values("구매", ascending=False)
             for _, r in g.iterrows():
-                _b, _t = int(r["반품"]), int(r["구매"])
+                _b, _t, _c = int(r["반품"]), int(r["구매"]), int(r["취소"])
                 _rt = _rate(_b, _t)
                 _rc = "#B1442F" if _rt >= 5 else "#2D2B28"
                 _rows += ("<tr style='border-bottom:1px solid #ECECEC;'>"
@@ -1472,29 +1458,38 @@ elif page == "📦 반품 분석":
                           f"<td style='padding:9px 8px;text-align:right;color:#2D2B28;'>{_t:,}건</td>"
                           f"<td style='padding:9px 8px;text-align:right;color:#2D2B28;'>{_b:,}건</td>"
                           f"<td style='padding:9px 8px;text-align:right;font-weight:600;color:{_rc};'>{_rt:.1f}%</td>"
+                          f"<td style='padding:9px 8px;text-align:right;color:#8C8680;'>{_c:,}건</td>"
                           "</tr>")
             # 합계
-            _tt, _tb = int(g["구매"].sum()), int(g["반품"].sum())
+            _tt, _tb, _tc = int(g["구매"].sum()), int(g["반품"].sum()), int(g["취소"].sum())
             _rows += ("<tr style='border-top:2px solid #E0DBD2;'>"
                       "<td style='padding:9px 8px;font-weight:700;'>합계</td>"
                       f"<td style='padding:9px 8px;text-align:right;font-weight:700;'>{_tt:,}건</td>"
                       f"<td style='padding:9px 8px;text-align:right;font-weight:700;'>{_tb:,}건</td>"
-                      f"<td style='padding:9px 8px;text-align:right;font-weight:700;'>{_rate(_tb,_tt):.1f}%</td></tr>")
+                      f"<td style='padding:9px 8px;text-align:right;font-weight:700;'>{_rate(_tb,_tt):.1f}%</td>"
+                      f"<td style='padding:9px 8px;text-align:right;font-weight:700;color:#8C8680;'>{_tc:,}건</td></tr>")
             return ("<table style='width:100%;border-collapse:collapse;font-size:0.95rem;'>"
                     "<thead><tr style='border-bottom:2px solid #E0DBD2;'>"
                     f"<th style='padding:8px;text-align:left;color:#8C8680;font-weight:500;font-size:.82rem;'>{label_col}</th>"
                     "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.82rem;'>구매</th>"
                     "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.82rem;'>반품</th>"
                     "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.82rem;'>반품률</th>"
+                    "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.82rem;'>취소</th>"
                     "</tr></thead><tbody>" + _rows + "</tbody></table>")
 
         # 요약 헤드라인
         _tb = int(_rdf["반품건수"].sum()); _tt = int(_rdf["구매건수"].sum())
+        _tc = int(_rdf["취소건수"].sum())
         st.markdown(f"""
-        <div style='margin:2px 0 18px;'>
+        <div style='margin:2px 0 4px;'>
           <span style='font-size:2.0rem;font-weight:700;color:#2D2B28;'>반품률 {_rate(_tb,_tt):.1f}%</span>
           <span style='color:#8C8680;font-size:.92rem;margin-left:12px;'>
-          {_ry}년 구매 {_tt:,}건 · 반품 {_tb:,}건</span>
+          {_ry}년 구매 {_tt:,}건 · 반품 {_tb:,}건 · 취소 {_tc:,}건</span>
+        </div>
+        <div style='background:#F5F3EF;border-radius:8px;padding:7px 13px;margin:0 0 16px;
+                    color:#6B6560;font-size:.8rem;'>
+          <b>반품</b> = 배송 후 실제 반품(반품완료) · <b>취소</b> = 결제 후 배송 전 취소.
+          입금전취소(미결제)는 구매·반품·취소 모두에서 제외. 반품률 = 반품 ÷ 구매.
         </div>""", unsafe_allow_html=True)
 
         _c1, _c2 = st.columns(2)
@@ -1513,7 +1508,8 @@ elif page == "📦 반품 분석":
 
         # 월별 표 + 차트
         st.markdown('<div class="section-title">월별 추이</div>', unsafe_allow_html=True)
-        _m = _rdf.groupby("월").agg(구매=("구매건수", "sum"), 반품=("반품건수", "sum")).reset_index().sort_values("월")
+        _m = _rdf.groupby("월").agg(구매=("구매건수", "sum"), 반품=("반품건수", "sum"),
+                                    취소=("취소건수", "sum")).reset_index().sort_values("월")
         _m["반품률"] = (_m["반품"] / _m["구매"].replace(0, 1) * 100).round(1)
         _mt1, _mt2 = st.columns([1, 1])
         with _mt1:
@@ -1523,13 +1519,15 @@ elif page == "📦 반품 분석":
                            f"<td style='padding:8px;font-weight:600;'>{int(r['월'])}월</td>"
                            f"<td style='padding:8px;text-align:right;'>{int(r['구매']):,}</td>"
                            f"<td style='padding:8px;text-align:right;'>{int(r['반품']):,}</td>"
-                           f"<td style='padding:8px;text-align:right;font-weight:600;'>{r['반품률']:.1f}%</td></tr>")
+                           f"<td style='padding:8px;text-align:right;font-weight:600;'>{r['반품률']:.1f}%</td>"
+                           f"<td style='padding:8px;text-align:right;color:#8C8680;'>{int(r['취소']):,}</td></tr>")
             st.markdown("<table style='width:100%;border-collapse:collapse;font-size:0.92rem;'>"
                         "<thead><tr style='border-bottom:2px solid #E0DBD2;'>"
                         "<th style='padding:8px;text-align:left;color:#8C8680;font-weight:500;font-size:.8rem;'>월</th>"
                         "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.8rem;'>구매</th>"
                         "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.8rem;'>반품</th>"
                         "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.8rem;'>반품률</th>"
+                        "<th style='padding:8px;text-align:right;color:#8C8680;font-weight:500;font-size:.8rem;'>취소</th>"
                         "</tr></thead><tbody>" + _mrows + "</tbody></table>", unsafe_allow_html=True)
         with _mt2:
             if not _m.empty:

@@ -34,3 +34,10 @@ Thumbs.db
 .vscode/
 .idea/
 .returns_last
+naver_profile/
+
+# 엑셀 아카이브 (고객 개인정보 포함 — 절대 커밋 금지)
+exports/
+
+# 로그
+*.log
