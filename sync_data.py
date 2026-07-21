@@ -5,9 +5,19 @@
 - start.bat에서 대시보드 시작 전에 자동 실행
 """
 import os
+import sys
+import io
 import time
 from pathlib import Path
 from datetime import date, timedelta
+
+# 콘솔이 cp949면 메시지의 '—' 같은 문자에서 UnicodeEncodeError로 죽는다.
+# (pythonw로 돌 땐 stdout이 없으므로 None 체크)
+if sys.stdout is not None:
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+if sys.stderr is not None:
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+
 from config import is_configured
 from api.db import get_missing_dates, mark_fetched, save_sales, save_ads
 from api.token_manager import check_and_refresh_all

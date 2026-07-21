@@ -214,8 +214,10 @@ def _kill_leftover_chrome() -> None:
         "ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
     )
     try:
+        # CREATE_NO_WINDOW: pythonw(콘솔 없음)에서 PowerShell을 띄우면 창이 깜빡이므로 숨긴다
         subprocess.run(["powershell", "-NoProfile", "-Command", ps],
-                       timeout=20, capture_output=True)
+                       timeout=20, capture_output=True,
+                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         time.sleep(1.5)  # 프로필 잠금(SingletonLock) 해제 대기
         logger.info("잔여 coupang_profile Chrome 정리 완료")
     except Exception as e:
