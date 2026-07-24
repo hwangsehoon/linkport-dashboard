@@ -859,6 +859,20 @@ if page == "📊 대시보드":
     </div>
     """, unsafe_allow_html=True)
 
+    # 수집 이상 알림 — 쿠팡 세션 만료처럼 조치가 필요한 건 로그가 아니라 여기서 바로 보이게
+    try:
+        _sc = sqlite3.connect(DB_PATH)
+        _st = _sc.execute(
+            "SELECT 소스,상태,메시지 FROM sync_status WHERE 상태 <> 'ok'").fetchall()
+        _sc.close()
+        for _src, _state, _msg in _st:
+            st.markdown(
+                f"<div style='background:#FBEEEC;border:1px solid #E8C9C2;border-radius:8px;"
+                f"padding:9px 14px;margin:4px 0 10px;color:#B1442F;font-size:.87rem;'>"
+                f"⚠ <b>{_src} 수집 중단</b> — {_msg}</div>", unsafe_allow_html=True)
+    except Exception:
+        pass   # 상태 테이블이 아직 없거나 조회 실패해도 대시보드는 정상 표시
+
     sf = store_filter_ui("dash")
 
     # 오늘/어제 집계

@@ -26,6 +26,24 @@ from api.token_manager import check_and_refresh_all
 COUPANG_ADS_MIN_INTERVAL_MIN = 60
 
 
+def _set_status(source: str, state: str, message: str = ""):
+    """수집 상태를 DB에 남긴다. 대시보드가 이걸 읽어 '쿠팡 세션 만료' 같은 걸 바로 보여준다.
+    (지금까지는 실패가 로그에만 남아, 며칠 멈춰도 눈치채기 어려웠다)"""
+    try:
+        from api.db import _get_conn
+        c = _get_conn(); cur = c.cursor()
+        cur.execute("""CREATE TABLE IF NOT EXISTS sync_status (
+            소스 TEXT PRIMARY KEY, 상태 TEXT, 메시지 TEXT, 갱신시각 TIMESTAMPTZ DEFAULT now())""")
+        cur.execute("""INSERT INTO sync_status (소스,상태,메시지,갱신시각)
+                       VALUES (%s,%s,%s,now())
+                       ON CONFLICT (소스) DO UPDATE SET
+                       상태=EXCLUDED.상태, 메시지=EXCLUDED.메시지, 갱신시각=now()""",
+                    (source, state, message))
+        c.commit(); c.close()
+    except Exception:
+        pass   # 상태 기록 실패가 동기화를 막으면 안 된다
+
+
 def _sync_coupang_ads(days):
     """쿠팡 광고 크롤러 실행 (로컬·세션 있을 때만 — CI/세션없음은 자동 스킵).
     5분 동기화에 매번 Chrome을 띄우지 않도록 1시간에 한 번만 실행한다."""
@@ -48,10 +66,14 @@ def _sync_coupang_ads(days):
         print("  쿠팡 광고: 크롤러 실행 중...")
         try:
             crawl(days=min(days, 7), auto=True)  # 창 숨김, 만료 시 조용히 스킵
+            _set_status("쿠팡광고", "ok", "")
         except SessionExpired as e:
             print(f"  쿠팡 광고: {e}")
+            _set_status("쿠팡광고", "session_expired",
+                        "쿠팡 로그인 세션 만료 — coupang_login.bat 실행 후 재로그인 필요")
     except Exception as e:
         print(f"  쿠팡 광고 실패: {e}")
+        _set_status("쿠팡광고", "error", str(e)[:200])
 
 
 # 반품 집계는 무거우므로(특히 스마트스토어 일자순회) 12시간에 한 번만
@@ -129,8 +151,14 @@ def sync_recent(days=7):
                     save_sales(df)
                     mark_fetched("smartstore", df["날짜"].unique().tolist())
                     print(f"  스마트스토어: {len(df)}건 저장")
+                    _set_status("스마트스토어", "ok", "")
+                else:
+                    # fetch_smartstore는 IP 차단 시 메시지만 찍고 빈 값을 준다 → 여기서 상태로 남긴다
+                    _set_status("스마트스토어", "no_data",
+                                "수집 결과 없음 — 커머스API센터 허용 IP 등록 확인 필요")
             except Exception as e:
                 print(f"  스마트스토어 실패: {e}")
+                _set_status("스마트스토어", "error", str(e)[:200])
 
     if is_configured("coupang"):
         missing = _dates_to_fetch("coupang", start, end)

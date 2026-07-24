@@ -250,6 +250,9 @@ def crawl(days: int, auto: bool, lookback: int = 30) -> None:
         context.add_init_script(
             "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});")
         page = context.pages[0] if context.pages else context.new_page()
+        # 네트워크/Akamai가 응답을 안 줘도 무한 대기하지 않도록 상한을 둔다
+        context.set_default_timeout(30_000)
+        context.set_default_navigation_timeout(30_000)
         try:
             ensure_session(page, auto)
 
@@ -264,6 +267,11 @@ def crawl(days: int, auto: bool, lookback: int = 30) -> None:
                     all_rows.extend(day_rows)
                 else:
                     logger.info(f"  {cur}: 광고 없음 (정상)")
+        except Exception as e:
+            # 예외는 호출자(sync)가 받아 처리하지만, 크롤러 자기 로그(crawl.log)에도 남겨야
+            # 이 파일만 봐도 "왜 멈췄는지"를 알 수 있다. (안 남기면 로그가 중간에 끊긴 것처럼 보임)
+            logger.warning(f"중단: {type(e).__name__} — {e}")
+            raise
         finally:
             context.close()
 
