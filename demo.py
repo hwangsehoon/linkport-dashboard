@@ -62,33 +62,31 @@ st.markdown("""
         color: #E8E4DE !important;
     }
     section[data-testid="stSidebar"] .stRadio label span {
-        color: #E8E4DE !important;
+        color: #B5AFA7 !important;
     }
-    section[data-testid="stSidebar"] .stRadio label[data-checked="true"] span {
+    section[data-testid="stSidebar"] .stRadio label:has(input:checked) span {
         color: #FFFFFF !important;
-        font-weight: 700 !important;
     }
     /* 사이드바 메뉴 카드형 */
     section[data-testid="stSidebar"] .stRadio {
         padding: 0 8px !important;
     }
     section[data-testid="stSidebar"] .stRadio > div {
-        gap: 6px !important;
+        gap: 3px !important;
     }
     section[data-testid="stSidebar"] .stRadio > div > label {
         display: flex !important;
         align-items: center !important;
         justify-content: flex-start !important;
-        background: #3D3B38 !important;
-        border: 1px solid #4A4745 !important;
+        background: transparent !important;
+        border: none !important;
         border-radius: 10px !important;
-        padding: 12px 18px !important;
+        padding: 10px 14px !important;
         margin: 0 !important;
         width: 100% !important;
-        height: 46px !important;
-        transition: all 0.18s ease !important;
+        height: 44px !important;
+        transition: background 0.15s ease, color 0.15s ease !important;
         cursor: pointer !important;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.15);
         box-sizing: border-box !important;
     }
     section[data-testid="stSidebar"] .stRadio > div > label > div:last-child {
@@ -96,38 +94,33 @@ st.markdown("""
         text-align: left !important;
     }
     section[data-testid="stSidebar"] .stRadio > div > label:hover {
-        background: #4A4745 !important;
-        transform: translateX(3px);
-        box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+        background: rgba(255,255,255,0.07) !important;
     }
-    section[data-testid="stSidebar"] .stRadio > div > label[data-checked="true"] {
-        background: linear-gradient(135deg, #D97757 0%, #C4694D 100%) !important;
-        border-color: #FFB088 !important;
-        border-width: 1px !important;
-        border-left: 4px solid #FFFFFF !important;
-        box-shadow: 0 6px 20px rgba(217,119,87,0.55), inset 0 0 0 1px rgba(255,255,255,0.15);
-        transform: translateX(4px);
-        padding-left: 14px !important;
+    section[data-testid="stSidebar"] .stRadio > div > label:has(input:checked) {
+        background: #D97757 !important;
     }
-    section[data-testid="stSidebar"] .stRadio > div > label[data-checked="true"]::after {
-        content: "▸";
-        margin-left: auto;
-        font-size: 1.1rem;
-        color: #FFFFFF;
-        font-weight: 700;
-    }
-    section[data-testid="stSidebar"] .stRadio > div > label[data-checked="true"] span {
-        font-size: 1rem !important;
-        font-weight: 700 !important;
-        letter-spacing: 0.02em;
+    section[data-testid="stSidebar"] .stRadio > div > label:has(input:checked) span {
+        font-weight: 600 !important;
     }
     /* 라디오 동그라미 점 숨김 */
     section[data-testid="stSidebar"] .stRadio > div > label > div:first-child {
         display: none !important;
     }
     section[data-testid="stSidebar"] .stRadio > div > label span {
-        font-size: 0.95rem !important;
+        font-size: 0.92rem !important;
         font-weight: 500 !important;
+        letter-spacing: -0.01em !important;
+    }
+    /* 메뉴 아이콘 — 크기·정렬을 하나로 통일 */
+    section[data-testid="stSidebar"] .stRadio span[role="img"] {
+        font-size: 20px !important;
+        line-height: 1 !important;
+        margin-right: 9px !important;
+        vertical-align: -5px !important;
+        color: #B5AFA7 !important;
+    }
+    section[data-testid="stSidebar"] .stRadio > div > label:has(input:checked) span[role="img"] {
+        color: #FFFFFF !important;
     }
     section[data-testid="stSidebar"] hr {
         border-color: #4A4745 !important;
@@ -142,7 +135,9 @@ st.markdown("""
     h1, h2, h3, h4, h5, h6, p, div, label {
         font-family: 'Noto Sans KR', sans-serif !important;
     }
-    span:not([data-testid="stIconMaterial"]) {
+    /* role="img" 는 아이콘/이모지 전용 span. 자기 폰트를 써야 글리프가 나오므로 제외한다.
+       (제외하지 않으면 아이콘 이름이 글자 그대로 찍힌다) */
+    span:not([data-testid="stIconMaterial"]):not([role="img"]) {
         font-family: 'Noto Sans KR', sans-serif !important;
     }
 
@@ -366,7 +361,68 @@ st.markdown("""
     }
 
     /* 컬럼 사이 간격 */
-    [data-testid="column"] { padding: 0 6px; }
+    [data-testid="column"] { padding: 0 9px; }
+
+    /* ══ 벤토 그리드 카드 ══
+       st.container(key="bento_xxx") 를 쓰면 그 상자에 st-key-bento_xxx 클래스가 붙는다.
+       그걸 잡아서 흰 카드 모양(둥근 모서리+옅은 그림자)을 입힌다. */
+    [class*="st-key-bento"] {
+        background: #FFFFFF;
+        border: 1px solid #ECE8E1;
+        border-radius: 18px;
+        padding: 20px 22px 18px 22px;
+        margin-bottom: 18px;
+        box-shadow: 0 1px 2px rgba(45,43,40,0.04), 0 8px 24px rgba(45,43,40,0.05);
+        transition: box-shadow 0.2s ease, transform 0.2s ease;
+    }
+    [class*="st-key-bento"]:hover {
+        box-shadow: 0 2px 4px rgba(45,43,40,0.05), 0 14px 34px rgba(45,43,40,0.09);
+        transform: translateY(-2px);
+    }
+    /* 같은 줄 카드는 st.container(height="stretch") 로 높이를 맞춘다.
+       늘어난 카드 안에서 스크롤바가 생기지 않게 넘침 처리만 풀어준다. */
+    [class*="st-key-bento"] > div { overflow: visible !important; }
+
+    /* 포인트 카드 (오늘 매출) - 다크 */
+    .st-key-bento_hero {
+        background: linear-gradient(155deg, #383430 0%, #232120 100%);
+        border-color: #383430;
+        box-shadow: 0 10px 28px rgba(35,33,32,0.22);
+    }
+    .st-key-bento_hero * { color: #F3EFE9 !important; }
+
+    /* 서브 포인트 카드 (월 목표) - 연한 살구 */
+    .st-key-bento_goal {
+        background: linear-gradient(160deg, #FDF4EF 0%, #FAEBE2 100%);
+        border-color: #F2DDD1;
+    }
+
+    /* 카드 안에 들어간 차트/표는 자기 테두리를 벗는다 (카드가 이미 테두리) */
+    [class*="st-key-bento"] .stPlotlyChart {
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+    }
+    [class*="st-key-bento"] [data-testid="stDataFrame"] { border-color: #F0ECE6; }
+    [class*="st-key-bento"] .empty-state { border-color: #ECE8E1; padding: 32px 16px; }
+
+    /* 카드 머리글 */
+    .bento-title {
+        font-size: 0.95rem; font-weight: 700; color: #2D2B28;
+        letter-spacing: -0.01em; margin: 0;
+    }
+    .bento-sub { font-size: 0.75rem; color: #8C8680; margin: 3px 0 12px 0; }
+    .bento-label {
+        font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em;
+        text-transform: uppercase; color: #8C8680; margin: 0 0 6px 0;
+    }
+
+    /* 카드 안 드롭다운은 알약 모양으로 */
+    [class*="st-key-bento"] [data-testid="stSelectbox"] > div > div {
+        border-radius: 999px !important;
+        background: #F7F4EF !important;
+    }
 
     /* 사이드바 토글 버튼 더 잘 보이게 */
     [data-testid="stSidebarCollapseButton"] {
@@ -746,10 +802,21 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     st.divider()
 
+    # 메뉴 아이콘 — 이모지는 폰트마다 크기/색이 제각각이라, 굵기·크기가 일정한
+    # 머티리얼 아이콘(:material/...:)을 쓴다. 색은 글자색을 그대로 따라간다.
+    MENU_ICONS = {
+        "대시보드": "space_dashboard",
+        "브랜드 분석": "sell",
+        "채널 분석": "storefront",
+        "반품 분석": "assignment_return",
+        "설정": "settings",
+    }
     page = st.radio(
         "메뉴",
-        ["📊 대시보드", "🏷️ 브랜드 분석", "🏪 채널 분석", "📦 반품 분석", "⚙️ 설정"],
+        list(MENU_ICONS),
+        format_func=lambda p: f":material/{MENU_ICONS[p]}: {p}",
         label_visibility="collapsed",
+        width="stretch",
     )
 
     st.divider()
@@ -784,6 +851,11 @@ with st.sidebar:
         .kpi-label, .muted-text { color: #B8B2AA !important; }
         [data-testid="stMetricValue"] { color: #FAF9F6 !important; }
         .empty-state { background: #2D2B28 !important; color: #B8B2AA !important; }
+        [class*="st-key-bento"] { background: #2D2B28 !important; border-color: #3D3B38 !important; }
+        .st-key-bento_hero { background: linear-gradient(155deg, #3F3B36 0%, #1F1E1C 100%) !important; }
+        .st-key-bento_goal { background: #35312B !important; border-color: #4A423A !important; }
+        .bento-title { color: #FAF9F6 !important; }
+        .bento-sub, .bento-label { color: #B8B2AA !important; }
         </style>
         """, unsafe_allow_html=True)
 
@@ -847,7 +919,7 @@ with st.sidebar:
 # ══════════════════════════════════════════════
 # PAGE 1: 대시보드
 # ══════════════════════════════════════════════
-if page == "📊 대시보드":
+if page == "대시보드":
     today = _today_kst()
     yesterday = today - timedelta(days=1)
     weekday_kr = ["월", "화", "수", "목", "금", "토", "일"][today.weekday()]
@@ -873,7 +945,28 @@ if page == "📊 대시보드":
     except Exception:
         pass   # 상태 테이블이 아직 없거나 조회 실패해도 대시보드는 정상 표시
 
-    sf = store_filter_ui("dash")
+    # ── 상단 툴바: 스토어 필터 + 기간 ────────────────────────────
+    period_options = {"오늘": 0, "어제": 0, "최근 3일": 3, "최근 7일": 7, "최근 14일": 14, "최근 30일": 30, "최근 90일": 90, "직접 설정": 0}
+    _tb_l, _tb_r = st.columns([2.4, 1])
+    with _tb_l:
+        sf = store_filter_ui("dash")
+    with _tb_r:
+        st.markdown("<div style='height:26px'></div>", unsafe_allow_html=True)
+        period_sel = st.selectbox("기간", list(period_options.keys()), index=5,
+                                  key="dash_period", label_visibility="collapsed")
+
+    _q = _quick_period(period_sel, today)
+    if _q:
+        d_from, d_to = _q
+    elif period_sel == "직접 설정":
+        _f1, _f2, _f3 = st.columns([1, 1, 2])
+        with _f1:
+            d_from = st.date_input("시작", today - timedelta(30), key="dash_from", format="YYYY/MM/DD")
+        with _f2:
+            d_to = st.date_input("종료", today, key="dash_to", format="YYYY/MM/DD")
+    else:
+        d_from = today - timedelta(period_options[period_sel])
+        d_to = today
 
     # 오늘/어제 집계
     t_s = df_sales[df_sales["날짜"] == today]
@@ -894,19 +987,9 @@ if page == "📊 대시보드":
     y_roas = y_conv / max(1, y_ad) * 100
     t_broas = t_rev / max(1, t_ad) * 100
     y_broas = y_rev / max(1, y_ad) * 100
-
-    # 헤드라인 — 오늘 매출 (큰 숫자 + 맥락, 압축)
     _drev = (t_rev - y_rev) / y_rev * 100 if y_rev else 0
-    _rsig = "#2F7D4A" if t_roas >= 300 else ("#9A7B1F" if t_roas >= 150 else ("#B1442F" if t_roas > 0 else "#8C8680"))
-    st.markdown(f"""
-    <div style='display:flex;align-items:baseline;gap:16px;margin:0;'>
-      <div style='font-size:2.3rem;font-weight:700;color:#2D2B28;line-height:1.1;'>{fmt_full(int(t_rev))}</div>
-      <div style='font-size:1rem;color:{"#2F7D4A" if _drev>=0 else "#B1442F"};'>전일 {_drev:+.0f}%</div>
-    </div>
-    <div style='color:#8C8680;font-size:.9rem;margin-bottom:18px;'>광고 ROAS <b style='color:{_rsig}'>{t_roas:.0f}%</b> · 광고비 {fmt_full(int(t_ad))} · 주문 {int(t_orders)}건 · 객단가 {fmt_full(int(t_aov))}</div>
-    """, unsafe_allow_html=True)
 
-    # 월 목표 달성
+    # 월 목표
     _month_key = today.strftime("%Y-%m")
     _month_label = f"{today.month}월"
     try:
@@ -923,80 +1006,12 @@ if page == "📊 대시보드":
     month_days = calendar.monthrange(today.year, today.month)[1]
     remaining = month_days - today.day
     daily_needed = (target - m_rev) / remaining if remaining > 0 else 0
-
-    st.markdown(f'<div class="section-title">{_month_label} 목표</div>', unsafe_allow_html=True)
     _pace_pos = (m_rev / max(1, today.day)) >= daily_needed
-    st.markdown(f"""
-    <div style='display:flex;align-items:baseline;gap:14px;'>
-      <div style='font-size:1.7rem;font-weight:700;color:#2D2B28;'>{achieve:.0f}%</div>
-      <div style='color:#8C8680;'>{fmt_full(int(m_rev))} / {fmt_full(int(target))}</div>
-      <div style='margin-left:auto;color:{"#2F7D4A" if _pace_pos else "#B1442F"};font-weight:600;'>페이스 {"순조" if _pace_pos else "부족"} · 남은 {remaining}일</div>
-    </div>
-    <div style='background:#ECE8E1;border-radius:6px;height:10px;margin-top:8px;overflow:hidden;'>
-      <div style='background:#D97757;height:10px;width:{min(achieve,100):.0f}%;'></div>
-    </div>""", unsafe_allow_html=True)
 
-    st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
-
-    # 매출/광고비 추이 — 보고 싶은 지표만 선 하나씩 (깔끔)
-    st.markdown('<div class="section-title">매출 / 광고비 추이</div>', unsafe_allow_html=True)
-    _TCOL = {"매출": "#D97757", "광고비": "#8C8680", "ROAS": "#7B8DBF", "B.ROAS": "#4A8C5F"}
-    period_options = {"오늘": 0, "어제": 0, "최근 3일": 3, "최근 7일": 7, "최근 14일": 14, "최근 30일": 30, "최근 90일": 90, "직접 설정": 0}
-    _cw = st.columns([0.7, 0.7, 0.9, 0.8, 0.9, 1.6])
-    _all = _cw[0].checkbox("전체", key="dash_all")
-    _r = _cw[1].checkbox("매출", value=True, key="dash_c_rev")
-    _a = _cw[2].checkbox("광고비", key="dash_c_ad")
-    _o = _cw[3].checkbox("ROAS", key="dash_c_roas")
-    _b = _cw[4].checkbox("B.ROAS", key="dash_c_broas")
-    with _cw[5]:
-        period_sel = st.selectbox("기간", list(period_options.keys()), index=5, key="dash_period", label_visibility="collapsed")
-    _q = _quick_period(period_sel, today)
-    if _q:
-        d_from, d_to = _q
-    elif period_sel == "직접 설정":
-        _f1, _f2 = st.columns(2)
-        with _f1:
-            d_from = st.date_input("시작", today - timedelta(30), key="dash_from", format="YYYY/MM/DD")
-        with _f2:
-            d_to = st.date_input("종료", today, key="dash_to", format="YYYY/MM/DD")
-    else:
-        d_from = today - timedelta(period_options[period_sel])
-        d_to = today
-    _sel = ["매출", "광고비", "ROAS", "B.ROAS"] if _all else [m for m, on in
-            [("매출", _r), ("광고비", _a), ("ROAS", _o), ("B.ROAS", _b)] if on]
-    if not _sel:
-        _sel = ["매출"]
-
+    # 선택 기간 집계 — 아래 카드들이 공유
+    _period_cap = f"{fmt_date(d_from)} ~ {fmt_date(d_to)}"
     chart_data = get_daily(d_from, d_to, sf)
-    if chart_data.empty:
-        empty_state(f"{d_from} ~ {d_to} 기간 데이터가 없어요. 사이드바에서 '🔄 오늘 매출 갱신'을 눌러보세요.", icon="📊")
-    else:
-        _won = [m for m in _sel if m in ("매출", "광고비")]
-        _pct = [m for m in _sel if m in ("ROAS", "B.ROAS")]
-        _mixed = bool(_won) and bool(_pct)  # 금액+%가 섞일 때만 오른쪽 보조축 사용
-        fig = make_subplots(specs=[[{"secondary_y": True}]])
-        for _mt in _sel:
-            _ispct = _mt in ("ROAS", "B.ROAS")
-            _suf = "%" if _ispct else "원"
-            fig.add_trace(go.Scatter(x=chart_data["날짜"], y=chart_data[_mt], name=_mt, mode="lines",
-                                     line=dict(color=_TCOL[_mt], width=2.5),
-                                     hovertemplate="%{x|%Y년 %-m월 %-d일}<br>" + _mt + ": %{y:,.0f}" + _suf + "<extra></extra>"),
-                          secondary_y=(_mixed and _ispct))
-        fig.update_layout(height=260, margin=dict(l=10, r=10, t=10, b=10),
-                          paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                          showlegend=len(_sel) > 1, legend=dict(orientation="h", y=1.1, x=0),
-                          xaxis=dict(showgrid=False, tickformatstops=[
-                              dict(dtickrange=[None, 86400000 * 7], value="%-m월 %-d일"),
-                              dict(dtickrange=[86400000 * 7, 86400000 * 60], value="%-m월 %-d일"),
-                              dict(dtickrange=[86400000 * 60, "M12"], value="%Y년 %-m월"),
-                              dict(dtickrange=["M12", None], value="%Y년"),
-                          ]),
-                          yaxis=dict(gridcolor="#ECE8E1", zeroline=False),
-                          yaxis2=dict(showgrid=False, zeroline=False))
-        st.plotly_chart(fig, use_container_width=True)
 
-    # 스토어별 매출 (위 추이의 선택 기간 기준) — 표 + 파이
-    st.markdown('<div class="section-title">스토어별 매출</div>', unsafe_allow_html=True)
     ds = df_sales[(df_sales["날짜"] >= d_from) & (df_sales["날짜"] <= d_to)]
     if sf != "전체":
         ds = ds[ds["스토어"].isin(sf)]
@@ -1004,68 +1019,171 @@ if page == "📊 대시보드":
     ch = ch[ch["매출"] > 0].sort_values("매출", ascending=False)
     ch["객단가"] = (ch["매출"] / ch["주문건수"].replace(0, 1)).astype(int)
     ch["매출비중"] = (ch["매출"] / max(1, ch["매출"].sum()) * 100).round(1)
-    if not ch.empty:
-        col_tbl, col_pie = st.columns([2, 1])
-        with col_tbl:
-            display_ch = ch.copy()
-            display_ch["매출"] = display_ch["매출"].apply(lambda x: f"₩{int(x):,}")
-            display_ch["객단가"] = display_ch["객단가"].apply(lambda x: f"₩{int(x):,}")
-            display_ch["매출비중"] = display_ch["매출비중"].apply(lambda x: f"{x}%")
-            # 맨 아래 합계 행 (선택 기간 매출/주문 합계)
-            _tot_rev = int(ch["매출"].sum()); _tot_ord = int(ch["주문건수"].sum())
-            _tot_aov = int(_tot_rev / _tot_ord) if _tot_ord else 0
-            display_ch = pd.concat([display_ch, pd.DataFrame([{
-                "스토어": "합계", "매출": f"₩{_tot_rev:,}", "주문건수": _tot_ord,
-                "객단가": f"₩{_tot_aov:,}", "매출비중": "100%",
-            }])], ignore_index=True)
-            st.dataframe(display_ch, width="stretch", hide_index=True)
-            download_csv_button(ch, f"스토어매출_{d_from}_{d_to}.csv", key="dash_dl_store")
-        with col_pie:
-            colors = [STORE_COLORS.get(s, "#A8A29E") for s in ch["스토어"]]
-            fig_pie = go.Figure(data=[go.Pie(
-                labels=ch["스토어"], values=ch["매출"],
-                marker=dict(colors=colors), hole=0.4,
-                textinfo="label+percent",
-                hovertemplate="%{label}<br>매출 ₩%{value:,.0f} · %{percent}<extra></extra>",
-                textfont=dict(size=12, color="#3D3B38"),
-                textposition="outside", pull=[0.02] * 10,
-            )])
-            fig_pie = apply_plotly_theme(fig_pie)
-            fig_pie.update_layout(height=300, showlegend=False, margin=dict(l=40, r=40, t=30, b=30))
-            st.plotly_chart(fig_pie, use_container_width=True)
 
-    # 광고채널별 성과 (위 추이의 선택 기간 기준)
-    st.markdown('<div class="section-title">광고채널별 성과</div>', unsafe_allow_html=True)
     da = df_ads[(df_ads["날짜"] >= d_from) & (df_ads["날짜"] <= d_to)]
     ad_ch = da.groupby("광고채널").agg({"광고비": "sum", "노출수": "sum", "클릭수": "sum", "전환수": "sum", "전환매출": "sum"}).reset_index()
     ad_ch = ad_ch[ad_ch["광고비"] > 0]
     if not ad_ch.empty:
         ad_ch["CTR"] = (ad_ch["클릭수"] / ad_ch["노출수"].replace(0, 1) * 100).round(2)
         ad_ch["ROAS"] = (ad_ch["전환매출"] / ad_ch["광고비"].replace(0, 1) * 100).round(0).astype(int)
-        col_funnel, col_bubble = st.columns([1, 1])
-        with col_funnel:
-            st.caption(f"광고 퍼널 (전체 채널 합계, 전환매출 ₩{int(ad_ch['전환매출'].sum()):,})")
-            _imp = int(ad_ch["노출수"].sum()); _click = int(ad_ch["클릭수"].sum()); _conv = int(ad_ch["전환수"].sum())
-            _ctr = (_click / max(1, _imp) * 100); _cvr = (_conv / max(1, _click) * 100)
-            fig_funnel = go.Figure(go.Funnel(
-                y=["노출수", "클릭수", "전환수"], x=[100, 65, 35],
-                text=[f"{_imp:,}", f"{_click:,} · CTR {_ctr:.2f}%", f"{_conv:,}건 · CVR {_cvr:.2f}%"],
-                textinfo="text", textposition="inside",
-                textfont=dict(size=13, color="#FFFFFF", family="Noto Sans KR"),
-                marker={"color": ["#7B8DBF", "#E89373", "#D97757"]},
-                connector={"line": {"color": "#E8E4DE"}},
-            ))
-            fig_funnel.update_layout(height=300, margin=dict(l=20, r=20, t=10, b=10),
-                                     plot_bgcolor="#FAF9F6", paper_bgcolor="#FAF9F6",
-                                     font=dict(family="Noto Sans KR", size=12, color="#3D3B38"),
-                                     xaxis=dict(visible=False))
-            st.plotly_chart(fig_funnel, use_container_width=True, config={"displayModeBar": False})
-        with col_bubble:
-            st.caption("채널 효율 (X:광고비 / Y:ROAS / 크기:전환매출)")
+
+    # ── 1행: 오늘 매출(포인트) · 스토어 비중 · 월 목표 ────────────
+    _r1a, _r1b, _r1c = st.columns([1.15, 1, 1])
+
+    with _r1a:
+        with st.container(key="bento_hero", height="stretch"):
+            _spark_df = get_daily(today - timedelta(days=13), today, sf)
+            _spark_vals = _spark_df["매출"].tolist() if not _spark_df.empty else []
+            _rsig = "#8FD3A6" if t_roas >= 300 else ("#E3C878" if t_roas >= 150 else ("#F0997F" if t_roas > 0 else "#A8A29E"))
+            st.markdown(f"""
+            <div class="bento-label">오늘 매출</div>
+            <div style='display:flex;align-items:baseline;gap:12px;'>
+              <div style='font-size:2.05rem;font-weight:700;line-height:1.1;'>{fmt_full(int(t_rev))}</div>
+              <div style='font-size:.88rem;font-weight:600;white-space:nowrap;color:{"#8FD3A6" if _drev >= 0 else "#F0997F"} !important;'>{"▲" if _drev >= 0 else "▼"} 전일 {abs(_drev):.0f}%</div>
+            </div>
+            <div style='margin:12px 0 14px;'>{_spark_svg(_spark_vals, "#E8A88C", 240, 46)}</div>
+            <div style='display:grid;grid-template-columns:1fr 1fr;gap:7px 16px;font-size:.82rem;'>
+              <div><span style='opacity:.55;'>ROAS</span> <b style='color:{_rsig} !important;'>{t_roas:.0f}%</b></div>
+              <div><span style='opacity:.55;'>광고비</span> <b>{fmt_full(int(t_ad))}</b></div>
+              <div><span style='opacity:.55;'>주문</span> <b>{int(t_orders)}건</b></div>
+              <div><span style='opacity:.55;'>객단가</span> <b>{fmt_full(int(t_aov))}</b></div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    with _r1b:
+        with st.container(key="bento_donut", height="stretch"):
+            st.markdown(f'<div class="bento-title">스토어별 비중</div>'
+                        f'<div class="bento-sub">{_period_cap}</div>', unsafe_allow_html=True)
+            if ch.empty:
+                empty_state("기간 내 매출이 없어요.", icon="🏪")
+            else:
+                colors = [STORE_COLORS.get(s, "#A8A29E") for s in ch["스토어"]]
+                fig_pie = go.Figure(data=[go.Pie(
+                    labels=ch["스토어"], values=ch["매출"],
+                    marker=dict(colors=colors, line=dict(color="#FFFFFF", width=2)), hole=0.66,
+                    textinfo="none",
+                    hovertemplate="%{label}<br>매출 ₩%{value:,.0f} · %{percent}<extra></extra>",
+                    sort=False,
+                )])
+                fig_pie = apply_plotly_theme(fig_pie)
+                fig_pie.update_layout(
+                    height=150, showlegend=False, margin=dict(l=0, r=0, t=0, b=0),
+                    annotations=[dict(text=f"<b>{fmt(int(ch['매출'].sum()))}</b>", x=0.5, y=0.5,
+                                      font=dict(size=15, family="Noto Sans KR"), showarrow=False)],
+                )
+                st.plotly_chart(fig_pie, use_container_width=True)
+                _legend = "".join(
+                    f"<div style='display:flex;align-items:center;gap:5px;'>"
+                    f"<span style='width:8px;height:8px;border-radius:3px;background:{STORE_COLORS.get(r['스토어'], '#A8A29E')};flex:none;'></span>"
+                    f"<span style='overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'>{r['스토어']}</span>"
+                    f"<span style='margin-left:auto;color:#8C8680;flex:none;'>{r['매출비중']:.0f}%</span></div>"
+                    for _, r in ch.head(4).iterrows())
+                st.markdown(f"<div style='display:grid;gap:5px;font-size:.75rem;margin-top:6px;'>{_legend}</div>",
+                            unsafe_allow_html=True)
+
+    with _r1c:
+        with st.container(key="bento_goal", height="stretch"):
+            st.markdown(f"""
+            <div class="bento-label">{_month_label} 목표</div>
+            <div style='display:flex;align-items:baseline;gap:10px;'>
+              <div style='font-size:2.05rem;font-weight:700;color:#2D2B28;line-height:1.1;'>{achieve:.0f}%</div>
+              <div style='font-size:.85rem;font-weight:600;color:{"#2F7D4A" if _pace_pos else "#B1442F"};'>페이스 {"순조" if _pace_pos else "부족"}</div>
+            </div>
+            <div style='color:#8C8680;font-size:.8rem;margin-top:4px;'>{fmt_full(int(m_rev))} / {fmt_full(int(target))}</div>
+            <div style='background:#F0DDD1;border-radius:8px;height:9px;margin-top:12px;overflow:hidden;'>
+              <div style='background:linear-gradient(90deg,#D97757,#E8A88C);height:9px;width:{min(achieve, 100):.0f}%;border-radius:8px;'></div>
+            </div>
+            <div style='margin-top:14px;'>{_spark_svg(month_data["매출"].tolist(), "#D97757", 240, 42)}</div>
+            <div style='color:#8C8680;font-size:.75rem;margin-top:6px;'>남은 {remaining}일 · 하루 {fmt(max(0, daily_needed))} 필요</div>
+            """, unsafe_allow_html=True)
+
+    # ── 2행: 매출/광고비 추이 · 광고 퍼널 ─────────────────────────
+    _r2a, _r2b = st.columns([2, 1])
+
+    with _r2a:
+        with st.container(key="bento_trend", height="stretch"):
+            st.markdown(f'<div class="bento-title">매출 / 광고비 추이</div>'
+                        f'<div class="bento-sub">{_period_cap}</div>', unsafe_allow_html=True)
+            _TCOL = {"매출": "#D97757", "광고비": "#8C8680", "ROAS": "#7B8DBF", "B.ROAS": "#4A8C5F"}
+            _cw = st.columns([0.8, 0.8, 1.0, 0.9, 1.1, 0.6])
+            _all = _cw[0].checkbox("전체", key="dash_all")
+            _r = _cw[1].checkbox("매출", value=True, key="dash_c_rev")
+            _a = _cw[2].checkbox("광고비", key="dash_c_ad")
+            _o = _cw[3].checkbox("ROAS", key="dash_c_roas")
+            _b = _cw[4].checkbox("B.ROAS", key="dash_c_broas")
+            _sel = ["매출", "광고비", "ROAS", "B.ROAS"] if _all else [m for m, on in
+                    [("매출", _r), ("광고비", _a), ("ROAS", _o), ("B.ROAS", _b)] if on]
+            if not _sel:
+                _sel = ["매출"]
+
+            if chart_data.empty:
+                empty_state(f"{d_from} ~ {d_to} 기간 데이터가 없어요. 사이드바에서 '🔄 오늘 매출 갱신'을 눌러보세요.", icon="📊")
+            else:
+                _won = [m for m in _sel if m in ("매출", "광고비")]
+                _pct = [m for m in _sel if m in ("ROAS", "B.ROAS")]
+                _mixed = bool(_won) and bool(_pct)  # 금액+%가 섞일 때만 오른쪽 보조축 사용
+                fig = make_subplots(specs=[[{"secondary_y": True}]])
+                for _mt in _sel:
+                    _ispct = _mt in ("ROAS", "B.ROAS")
+                    _suf = "%" if _ispct else "원"
+                    fig.add_trace(go.Scatter(x=chart_data["날짜"], y=chart_data[_mt], name=_mt, mode="lines",
+                                             line=dict(color=_TCOL[_mt], width=2.5, shape="spline"),
+                                             fill="tozeroy" if (len(_sel) == 1 and not _ispct) else None,
+                                             fillcolor="rgba(217,119,87,0.08)",
+                                             hovertemplate="%{x|%Y년 %-m월 %-d일}<br>" + _mt + ": %{y:,.0f}" + _suf + "<extra></extra>"),
+                                  secondary_y=(_mixed and _ispct))
+                fig.update_layout(height=296, margin=dict(l=10, r=24, t=10, b=10),
+                                  paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                                  showlegend=len(_sel) > 1, legend=dict(orientation="h", y=1.12, x=0),
+                                  xaxis=dict(showgrid=False, tickformatstops=[
+                                      dict(dtickrange=[None, 86400000 * 7], value="%-m월 %-d일"),
+                                      dict(dtickrange=[86400000 * 7, 86400000 * 60], value="%-m월 %-d일"),
+                                      dict(dtickrange=[86400000 * 60, "M12"], value="%Y년 %-m월"),
+                                      dict(dtickrange=["M12", None], value="%Y년"),
+                                  ]),
+                                  yaxis=dict(gridcolor="#F0ECE6", zeroline=False),
+                                  yaxis2=dict(showgrid=False, zeroline=False))
+                st.plotly_chart(fig, use_container_width=True)
+
+    with _r2b:
+        with st.container(key="bento_funnel", height="stretch"):
+            if ad_ch.empty:
+                st.markdown('<div class="bento-title">광고 퍼널</div>'
+                            '<div class="bento-sub">전체 채널 합계</div>', unsafe_allow_html=True)
+                empty_state("기간 내 광고 데이터가 없어요.", icon="📣")
+            else:
+                _imp = int(ad_ch["노출수"].sum()); _click = int(ad_ch["클릭수"].sum()); _conv = int(ad_ch["전환수"].sum())
+                _ctr = (_click / max(1, _imp) * 100); _cvr = (_conv / max(1, _click) * 100)
+                st.markdown(f'<div class="bento-title">광고 퍼널</div>'
+                            f'<div class="bento-sub">전체 채널 합계 · 전환매출 {fmt_full(int(ad_ch["전환매출"].sum()))}</div>',
+                            unsafe_allow_html=True)
+                fig_funnel = go.Figure(go.Funnel(
+                    y=["노출수", "클릭수", "전환수"], x=[100, 65, 35],
+                    text=[f"{_imp:,}", f"{_click:,}<br>CTR {_ctr:.2f}%", f"{_conv:,}건<br>CVR {_cvr:.2f}%"],
+                    textinfo="text", textposition="inside",
+                    textfont=dict(size=11, color="#FFFFFF", family="Noto Sans KR"),
+                    marker={"color": ["#7B8DBF", "#E89373", "#D97757"]},
+                    connector={"line": {"color": "#E8E4DE"}},
+                ))
+                fig_funnel.update_layout(height=336, margin=dict(l=10, r=10, t=10, b=10),
+                                         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                                         font=dict(family="Noto Sans KR", size=12, color="#3D3B38"),
+                                         xaxis=dict(visible=False))
+                st.plotly_chart(fig_funnel, use_container_width=True, config={"displayModeBar": False})
+
+    # ── 3행: 채널 효율 · 스토어별 매출 상세 ───────────────────────
+    _r3a, _r3b = st.columns([1, 1])
+
+    with _r3a:
+        with st.container(key="bento_bubble", height="stretch"):
+            st.markdown('<div class="bento-title">채널 효율</div>'
+                        '<div class="bento-sub">X: 광고비 · Y: ROAS · 크기: 전환매출</div>', unsafe_allow_html=True)
             CHANNEL_COLORS = {"Meta": "#1877F2", "Naver SA": "#03C75A", "쿠팡": "#FF6F61",
                               "카페제휴": "#9B59B6", "기타": "#A88B6E"}
-            ad_ch_pos = ad_ch[ad_ch["광고비"] > 0].copy()
-            if not ad_ch_pos.empty:
+            ad_ch_pos = ad_ch[ad_ch["광고비"] > 0].copy() if not ad_ch.empty else ad_ch
+            if ad_ch_pos.empty:
+                empty_state("기간 내 광고 집행이 없어요.", icon="🎯")
+            else:
                 fig_bub = go.Figure()
                 for _, r in ad_ch_pos.iterrows():
                     fig_bub.add_trace(go.Scatter(
@@ -1080,27 +1198,59 @@ if page == "📊 대시보드":
                 fig_bub.add_hline(y=100, line=dict(color="#C4694D", width=1, dash="dash"),
                                   annotation_text="손익분기 (ROAS 100%)", annotation_position="top right",
                                   annotation_font=dict(size=10, color="#C4694D"))
-                fig_bub.update_layout(height=300, margin=dict(l=40, r=20, t=10, b=40),
-                                      plot_bgcolor="#FAF9F6", paper_bgcolor="#FAF9F6",
+                fig_bub.update_layout(height=306, margin=dict(l=40, r=20, t=10, b=40),
+                                      plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                                       font=dict(family="Noto Sans KR", size=10, color="#3D3B38"),
-                                      xaxis=dict(title="광고비 (₩)", gridcolor="#E8E4DE", tickformat=",.0f"),
-                                      yaxis=dict(title="ROAS (%)", gridcolor="#E8E4DE"))
+                                      xaxis=dict(title="광고비 (₩)", gridcolor="#F0ECE6", tickformat=",.0f"),
+                                      yaxis=dict(title="ROAS (%)", gridcolor="#F0ECE6"))
                 st.plotly_chart(fig_bub, use_container_width=True, config={"displayModeBar": False})
-        display_ad = ad_ch.copy()
-        display_ad["광고비"] = display_ad["광고비"].apply(lambda x: f"₩{int(x):,}")
-        display_ad["전환매출"] = display_ad["전환매출"].apply(lambda x: f"₩{int(x):,}")
-        display_ad["노출수"] = display_ad["노출수"].apply(lambda x: f"{int(x):,}")
-        display_ad["클릭수"] = display_ad["클릭수"].apply(lambda x: f"{int(x):,}")
-        display_ad["CTR"] = display_ad["CTR"].apply(lambda x: f"{x}%")
-        display_ad["ROAS"] = display_ad["ROAS"].apply(lambda x: f"{x}%")
-        st.dataframe(display_ad, width="stretch", hide_index=True)
-        download_csv_button(ad_ch, f"광고채널성과_{d_from}_{d_to}.csv", key="dash_dl_ad_ch")
+
+    with _r3b:
+        with st.container(key="bento_storetbl", height="stretch"):
+            st.markdown(f'<div class="bento-title">스토어별 매출 상세</div>'
+                        f'<div class="bento-sub">{_period_cap}</div>', unsafe_allow_html=True)
+            if ch.empty:
+                empty_state("기간 내 매출이 없어요.", icon="🏪")
+            else:
+                display_ch = ch.copy()
+                display_ch["매출"] = display_ch["매출"].apply(lambda x: f"₩{int(x):,}")
+                display_ch["객단가"] = display_ch["객단가"].apply(lambda x: f"₩{int(x):,}")
+                display_ch["매출비중"] = display_ch["매출비중"].apply(lambda x: f"{x}%")
+                # 맨 아래 합계 행 (선택 기간 매출/주문 합계)
+                _tot_rev = int(ch["매출"].sum()); _tot_ord = int(ch["주문건수"].sum())
+                _tot_aov = int(_tot_rev / _tot_ord) if _tot_ord else 0
+                display_ch = pd.concat([display_ch, pd.DataFrame([{
+                    "스토어": "합계", "매출": f"₩{_tot_rev:,}", "주문건수": _tot_ord,
+                    "객단가": f"₩{_tot_aov:,}", "매출비중": "100%",
+                }])], ignore_index=True)
+                st.dataframe(display_ch, width="stretch", hide_index=True)
+                download_csv_button(ch, f"스토어매출_{d_from}_{d_to}.csv", key="dash_dl_store")
+
+    # ── 4행: 광고채널별 성과 ──────────────────────────────────────
+    with st.container(key="bento_adtbl"):
+        st.markdown(f'<div class="bento-title">광고채널별 성과</div>'
+                    f'<div class="bento-sub">{_period_cap}</div>', unsafe_allow_html=True)
+        if ad_ch.empty:
+            empty_state("기간 내 광고 데이터가 없어요.", icon="📣")
+        else:
+            display_ad = ad_ch.copy()
+            display_ad["광고비"] = display_ad["광고비"].apply(lambda x: f"₩{int(x):,}")
+            display_ad["전환매출"] = display_ad["전환매출"].apply(lambda x: f"₩{int(x):,}")
+            display_ad["노출수"] = display_ad["노출수"].apply(lambda x: f"{int(x):,}")
+            display_ad["클릭수"] = display_ad["클릭수"].apply(lambda x: f"{int(x):,}")
+            display_ad["CTR"] = display_ad["CTR"].apply(lambda x: f"{x}%")
+            display_ad["ROAS"] = display_ad["ROAS"].apply(lambda x: f"{x}%")
+            st.dataframe(display_ad, width="stretch", hide_index=True)
+            download_csv_button(ad_ch, f"광고채널성과_{d_from}_{d_to}.csv", key="dash_dl_ad_ch")
+
+
+
 
 
 # ══════════════════════════════════════════════
 # PAGE 2: 브랜드 분석
 # ══════════════════════════════════════════════
-elif page == "🏷️ 브랜드 분석":
+elif page == "브랜드 분석":
     st.markdown("""
     <div style='margin-bottom: 8px;'>
         <span style='font-size: 1.6rem; font-weight: 700; color: #2D2B28;'>브랜드 분석</span>
@@ -1299,7 +1449,7 @@ elif page == "🏷️ 브랜드 분석":
 # ══════════════════════════════════════════════
 # PAGE 4: 채널(스토어) 분석
 # ══════════════════════════════════════════════
-elif page == "🏪 채널 분석":
+elif page == "채널 분석":
     st.markdown("""
     <div style='margin-bottom: 8px;'>
         <span style='font-size: 1.6rem; font-weight: 700; color: #2D2B28;'>채널 분석</span>
@@ -1434,7 +1584,7 @@ elif page == "🏪 채널 분석":
 # ══════════════════════════════════════════════
 # PAGE: 반품 분석 (카페24+스마트스토어+쿠팡일반 / 쿠팡 로켓 제외)
 # ══════════════════════════════════════════════
-elif page == "📦 반품 분석":
+elif page == "반품 분석":
     from api.returns import load_monthly_returns
     st.markdown("""
     <div style='margin-bottom: 4px;'>
@@ -1593,7 +1743,7 @@ elif page == "📦 반품 분석":
 # ══════════════════════════════════════════════
 # PAGE 5: 설정
 # ══════════════════════════════════════════════
-elif page == "⚙️ 설정":
+elif page == "설정":
     st.markdown("""
     <div style='margin-bottom: 8px;'>
         <span style='font-size: 1.6rem; font-weight: 700; color: #2D2B28;'>설정</span>
