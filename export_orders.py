@@ -11,7 +11,10 @@
 결과: 바탕화면\링크포트_주문내역_2026.xlsx
 """
 import sys, io, re, calendar, time
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+# 직접 실행할 때만 stdout을 UTF-8로 감싼다. (import 시 감싸면 호출한 쪽의
+# stdout까지 닫혀 "I/O operation on closed file" 오류가 난다 — orders_db가 import함)
+if __name__ == "__main__" and sys.stdout is not None:
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 from datetime import date
 from collections import Counter
 
@@ -51,10 +54,22 @@ def fetch_month(cli, y, m):
     headers = {"Authorization": f"Bearer {cli.access_token}"}
     out, offset, limit = [], 0, 1000
     while True:
-        r = requests.get(url, headers=headers, params={
-            "start_date": f"{y}-{m:02d}-01", "end_date": f"{y}-{m:02d}-{last:02d}",
-            "limit": limit, "offset": offset, "embed": "receivers,buyer",
-        }, timeout=40)
+        # 타임아웃/연결오류로 전체 추출이 죽지 않도록 최대 4회 재시도(지수 백오프)
+        r = None
+        for attempt in range(4):
+            try:
+                r = requests.get(url, headers=headers, params={
+                    "start_date": f"{y}-{m:02d}-01", "end_date": f"{y}-{m:02d}-{last:02d}",
+                    "limit": limit, "offset": offset, "embed": "receivers,buyer",
+                }, timeout=60)
+                break
+            except requests.exceptions.RequestException as e:
+                wait = 3 * (attempt + 1)
+                print(f"    [{cli.store_name} {y}-{m:02d}] 재시도 {attempt+1}/4 ({type(e).__name__}) — {wait}s 대기")
+                time.sleep(wait)
+        if r is None:
+            print(f"    [{cli.store_name} {y}-{m:02d}] 4회 실패 — 이 달 건너뜀")
+            break
         if r.status_code != 200:
             print(f"    [{cli.store_name} {y}-{m:02d}] HTTP {r.status_code}")
             break

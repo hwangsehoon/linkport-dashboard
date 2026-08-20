@@ -104,6 +104,30 @@ def _sync_returns():
         print(f"  반품 집계 실패: {e}")
 
 
+ORDERS_MIN_INTERVAL_MIN = 60 * 6   # 주문이력 증분: 6시간에 한 번
+
+
+def _sync_orders():
+    """주문 이력 DB(order_history) 증분 동기화 — 재구매 분석용. 최근 60일 upsert.
+    (구: 바탕화면 엑셀 수동추출 → 이제 DB에 자동 적재해 재구매가 안 틀어지게 함)
+    카페24 월단위 조회라 무거워 6시간에 한 번만 실행."""
+    if os.getenv("GITHUB_ACTIONS"):
+        return
+    marker = Path(__file__).parent / ".orders_last"
+    if marker.exists() and (time.time() - marker.stat().st_mtime) < ORDERS_MIN_INTERVAL_MIN * 60:
+        return
+    try:
+        marker.write_text(str(time.time()))
+    except Exception:
+        pass
+    try:
+        from api.orders_db import sync_orders
+        n = sync_orders(date.today() - timedelta(days=60), date.today())
+        print(f"  주문이력: 최근 60일 {n}건 upsert")
+    except Exception as e:
+        print(f"  주문이력 동기화 실패: {e}")
+
+
 def _dates_to_fetch(service, start, end, force_recent_days=7):
     """fetch_log에 있어도 최근 N일은 항상 재수집 (당일 부분 데이터 갱신/일시 누락 자가복구용).
     동기화 당시 API가 빈 응답을 줬는데 '수집됨'으로 기록돼 누락이 굳는 것을 막기 위해
@@ -208,6 +232,9 @@ def sync_recent(days=7):
 
     # 월별 반품 집계 (12시간 주기 — 로컬에서만)
     _sync_returns()
+
+    # 주문 이력 증분 (6시간 주기 — 재구매 분석용)
+    _sync_orders()
 
     print("동기화 완료!")
 

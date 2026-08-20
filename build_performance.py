@@ -77,25 +77,21 @@ def _find_order_xl():
 
 
 def _orders():
-    """주문 엑셀을 못 찾으면 None. 재구매 지표만 건너뛰고 나머지는 정상 진행한다."""
-    path = _find_order_xl()
-    if path is None:
-        print("  ⚠ 주문내역 엑셀 없음 — 재구매 지표 건너뜀(기존 값 보존)")
+    """주문 이력을 DB(order_history)에서 읽어 '식별주문' DataFrame 반환. 없으면 None.
+
+    (구: 바탕화면 엑셀 → 파일 삭제/월말 수동추출로 데이터가 조용히 틀어졌다.
+     이제 order_history 테이블에서 읽어 항상 최신·완전한 이력으로 재구매를 계산한다.
+     load_orders() 가 예전 엑셀 방식과 '동일한' 고객키/필터/정렬을 적용해 준다.)"""
+    try:
+        from api.orders_db import load_orders
+        d = load_orders()
+    except Exception as e:
+        print(f"  ⚠ 주문이력 DB 로드 실패({e}) — 재구매 지표 건너뜀(기존 값 보존)")
         return None
-    d = pd.read_excel(path, "주문내역",
-                      dtype={"주문자휴대폰": str, "회원ID": str, "주문번호": str})
-    for c in ("주문자휴대폰", "회원ID", "주문번호"):
-        d[c] = d[c].astype(str).str.strip().replace("nan", "")
-    d["취소여부"] = d["취소여부"].fillna("")
-    d = d[d["취소여부"] == ""].copy()
-    d["주문일"] = pd.to_datetime(d["주문일"], errors="coerce")
-    d = d.dropna(subset=["주문일"])
-    ss = d[d["스토어"] == SS].drop_duplicates(subset=["주문번호"])   # 상품주문 → 주문 단위
-    d = pd.concat([d[d["스토어"] != SS], ss], ignore_index=True)
-    d["고객키"] = d.apply(
-        lambda r: ("N:" + r["회원ID"]) if r["스토어"] == SS and r["회원ID"]
-        else (("P:" + r["주문자휴대폰"]) if r["주문자휴대폰"] else ""), axis=1)
-    return d[d["고객키"] != ""].sort_values("주문일").reset_index(drop=True)
+    if d is None or d.empty:
+        print("  ⚠ 주문이력 DB 비어있음 — 재구매 지표 건너뜀(기존 값 보존)")
+        return None
+    return d
 
 
 def repeat_daily(d):
