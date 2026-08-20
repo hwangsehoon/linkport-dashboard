@@ -289,15 +289,77 @@ def crawl(days: int, auto: bool, lookback: int = 30) -> None:
                 f"실패/미집계 {len(targets) - len(ok_dates)}일")
 
 
+def crawl_attach(days: int, port: int = 9222, lookback: int = 30) -> None:
+    """이미 로그인된 '진짜 Chrome'(원격 디버깅 포트)에 붙어서 광고 데이터를 읽는다.
+
+    쿠팡 Akamai가 자동화로 새로 띄운 브라우저를 막고, 리포트 세션도 초단명(~1시간)이라
+    나중에 새로 띄우면 실패한다. 그래서 사용자가 coupang_login.bat(디버깅 모드)로
+    직접 로그인·리포트를 연 '살아있는 크롬'에 attach해서 그 세션으로 GraphQL만 호출한다.
+    → 크롬을 죽이거나 새로 띄우지 않는다. 브라우저도 닫지 않는다(세션 유지)."""
+    targets = _dates_to_fetch(days, lookback)
+    logger.info(f"[attach] 수집 대상 {len(targets)}일 (포트 {port})")
+    all_rows, ok_dates = [], []
+    with sync_playwright() as p:
+        try:
+            browser = p.chromium.connect_over_cdp(f"http://127.0.0.1:{port}")
+        except Exception as e:
+            raise SessionExpired(
+                f"디버깅 포트 {port}에 붙지 못했습니다 — coupang_login.bat 로 크롬을 켜고 "
+                f"로그인·리포트를 연 채로 두세요. ({e})")
+        ctx = browser.contexts[0] if browser.contexts else None
+        if ctx is None:
+            raise SessionExpired("열린 브라우저 컨텍스트가 없습니다.")
+        # advertising.coupang.com 에 있는 (=리포트를 본) 탭을 우선 사용
+        page = next((pg for pg in ctx.pages if "advertising.coupang.com" in (pg.url or "")), None)
+        if page is None:
+            page = ctx.pages[-1] if ctx.pages else ctx.new_page()
+            page.goto(REPORT_URL, wait_until="domcontentloaded")
+            _wait_settle(page)
+        if not _logged_in_url(page):
+            raise SessionExpired(
+                "붙은 크롬이 리포트 로그인 상태가 아닙니다 — 로그인 후 광고 리포트를 연 채로 두세요.")
+        logger.info("[attach] 세션 확인 OK")
+        for cur in targets:
+            ok, day_rows = fetch_day(page, cur)
+            if not ok:
+                continue
+            ok_dates.append(cur)
+            if day_rows:
+                total = sum(r["광고비"] for r in day_rows)
+                logger.info(f"  {cur}: {len(day_rows)}개 브랜드, 광고비 {total:,}원")
+                all_rows.extend(day_rows)
+            else:
+                logger.info(f"  {cur}: 광고 없음 (정상)")
+        # 사용자 크롬은 닫지 않는다 (CDP 연결만 끊는다)
+
+    if all_rows:
+        df = pd.DataFrame(all_rows)
+        df = df.groupby(["날짜", "광고채널", "브랜드"], as_index=False).agg(
+            광고비=("광고비", "sum"), 노출수=("노출수", "sum"), 클릭수=("클릭수", "sum"),
+            전환수=("전환수", "sum"), 전환매출=("전환매출", "sum"),
+        )
+        save_ads(df)
+    if ok_dates:
+        mark_fetched("coupang_ads", [d.isoformat() for d in ok_dates])
+    logger.info(f"[attach] 완료: 정상 {len(ok_dates)}일, 저장 {len(all_rows)}행, "
+                f"실패/미집계 {len(targets) - len(ok_dates)}일")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--days", type=int, default=3, help="오늘 포함 최근 며칠 수집 (기본 3)")
     ap.add_argument("--auto", action="store_true",
                     help="자동 모드: 창 숨김, 세션 만료 시 그냥 종료 (스케줄러/sync용). "
                          "생략하면 로그인 모드(창 표시).")
+    ap.add_argument("--attach", action="store_true",
+                    help="열려 있는 진짜 Chrome(디버깅 포트)에 붙어서 수집 (Akamai 우회).")
+    ap.add_argument("--port", type=int, default=9222, help="CDP 디버깅 포트 (기본 9222)")
     args = ap.parse_args()
     try:
-        crawl(args.days, args.auto)
+        if args.attach:
+            crawl_attach(args.days, args.port)
+        else:
+            crawl(args.days, args.auto)
     except SessionExpired as e:
         logger.error(str(e))
         sys.exit(2)
