@@ -345,6 +345,34 @@ def crawl_attach(days: int, port: int = 9222, lookback: int = 30) -> None:
                 f"실패/미집계 {len(targets) - len(ok_dates)}일")
 
 
+def _chrome_path() -> str:
+    for p in (r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+              r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"):
+        if Path(p).exists():
+            return p
+    return "chrome"   # PATH 에 있으면
+
+
+def login_and_attach(days: int, port: int = 9222) -> None:
+    """크롬을 '파이썬이 직접' 디버깅 포트로 띄우고(유니코드 경로 안전), 로그인 후
+    Enter 하면 attach 수집. 배치의 start 방식은 한글 경로+실행중 크롬에서 포트가
+    안 열려, 이 방식으로 대체한다."""
+    _kill_leftover_chrome()
+    time.sleep(1)
+    subprocess.Popen([_chrome_path(), f"--user-data-dir={PROFILE_DIR}",
+                      f"--remote-debugging-port={port}",
+                      "--window-position=60,60", "--window-size=1280,900", REPORT_URL])
+    print("\n크롬이 열렸습니다.")
+    print("  1) 쿠팡 wing 으로 로그인하세요.")
+    print("  2) 광고 리포트 화면에서 숫자(광고비)가 보이는지 확인하세요.")
+    print("  3) 이 창으로 돌아와 Enter 를 누르면 수집합니다.")
+    try:
+        input("\n준비되면 Enter... ")
+    except EOFError:
+        time.sleep(30)   # 비대화형 실행이면 30초 대기 후 진행
+    crawl_attach(days, port)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--days", type=int, default=3, help="오늘 포함 최근 며칠 수집 (기본 3)")
@@ -353,10 +381,14 @@ def main() -> None:
                          "생략하면 로그인 모드(창 표시).")
     ap.add_argument("--attach", action="store_true",
                     help="열려 있는 진짜 Chrome(디버깅 포트)에 붙어서 수집 (Akamai 우회).")
+    ap.add_argument("--login", action="store_true",
+                    help="크롬을 디버깅 포트로 직접 띄워 로그인 → Enter 시 attach 수집 (권장).")
     ap.add_argument("--port", type=int, default=9222, help="CDP 디버깅 포트 (기본 9222)")
     args = ap.parse_args()
     try:
-        if args.attach:
+        if args.login:
+            login_and_attach(args.days, args.port)
+        elif args.attach:
             crawl_attach(args.days, args.port)
         else:
             crawl(args.days, args.auto)
