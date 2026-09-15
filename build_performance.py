@@ -178,30 +178,52 @@ def blog_daily():
     #   · 사장님이 계정을 여기에 추가하므로 항상 최신 집합(2026-07 기준 566개)
     #   · 이 파일의 last_total 합계가 ★블로그 시트의 '누적 방문자'와 정확히 일치 → 시트의 원본
     #   · 로컬이라 H드라이브(구글드라이브) 미마운트 문제 없음
+    day = {}
+    cum = 0
+    json_last = None
     p = Path(BLOG_JSON)
     if p.exists():
         blogs = json.load(open(p, encoding="utf-8"))["blogs"]
-        day = defaultdict(int)
+        jd = defaultdict(int)
         for b in blogs:
             h = b.get("history") or {}
             prev = None
             for dt in sorted(h):
                 t = int(h[dt].get("total") or 0)
                 if prev is not None and t >= prev:   # 감소(글삭제/정지)는 방문 아님
-                    day[dt] += t - prev
+                    jd[dt] += t - prev
                 prev = t
-        if day:
+        if jd:
+            day.update(jd)
+            json_last = max(jd)
             cum = sum(int(b.get("last_total") or 0) for b in blogs)
-            print(f"  블로그: 헤르메스 추적기 {len(blogs)}개 · 기록 {len(day)}일 · 누적 {cum:,}명")
-            return dict(day), len(day), cum
+            print(f"  블로그: 헤르메스 추적기 {len(blogs)}개 · 기록 {len(jd)}일(~{json_last}) · 누적 {cum:,}명")
 
-    # 2순위(백업): ★블로그 구글시트 — 추적기 파일이 없을 때만.
-    #   시트는 4/21부터 있어 추적기(5/27~)보다 앞 구간을 채워준다.
+    # blogs.json이 멈춘 뒤(추적기 미가동)는 ★블로그 시트의 '일방문자(24h)'로 이어붙인다.
+    #   · 사장님이 시트에 매일 기록하므로 항상 최신
+    #   · 24h 컬럼은 글삭제 스파이크가 없어 일별이 정확 (누적 증가분 방식의 허수 방지)
+    try:
+        from api.blog_sheet import blog_visitors_24h_map
+        sheet = blog_visitors_24h_map()
+        added = 0
+        for dt, v in sheet.items():
+            if json_last is None or dt > json_last:   # blogs.json 이후 날짜만 시트로 채움
+                day[dt] = v
+                added += 1
+        if added:
+            print(f"  블로그: 시트 24h로 {added}일 이어붙임(blogs.json 이후 {json_last})")
+    except Exception as e:
+        print(f"  ⚠ 블로그 시트 24h 이어붙이기 실패: {type(e).__name__}: {e}")
+
+    if day:
+        return dict(day), len(day), cum
+
+    # blogs.json 없을 때: 시트 누적-증가분 백업(4/21부터 전체)
     try:
         from api.blog_sheet import blog_daily_map
         d2, n2, t2 = blog_daily_map()
         if d2:
-            print(f"  블로그: (대체) 구글시트에서 {n2}일 · 합계 {t2:,}명")
+            print(f"  블로그: (대체) 구글시트 누적증가분 {n2}일 · 합계 {t2:,}명")
             return d2, n2, t2
     except Exception as e:
         print(f"  ⚠ 블로그 시트 대체 실패: {type(e).__name__}")

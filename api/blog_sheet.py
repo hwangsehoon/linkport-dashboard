@@ -103,6 +103,33 @@ def blog_daily_map():
     return day, len(day), int(df["블로그방문자"].sum())
 
 
+COL_24H = 9         # 일방문자(최근24시간) — 실제 일별 방문자
+
+
+def blog_visitors_24h_map():
+    """'일방문자(최근24시간)' 컬럼 기반 {'YYYY-MM-DD': 방문자}.
+
+    누적 증가분 방식은 글 삭제로 누적이 줄었다 회복하는 날 가짜 스파이크가 생긴다
+    (예: 9/8~9 삭제로 누적↓ → 9/10에 +45k 허수). 24시간 방문자 컬럼은 그 왜곡이 없어
+    '일별'을 볼 때 정확하다. blogs.json이 멈춘 뒤(9/10~)는 이 컬럼으로 채운다."""
+    from google.oauth2.service_account import Credentials
+    from googleapiclient.discovery import build
+    cred = Credentials.from_service_account_file(KEY_PATH, scopes=SCOPES)
+    svc = build("sheets", "v4", credentials=cred)
+    vals = svc.spreadsheets().values().get(
+        spreadsheetId=SHEET_ID, range=f"'{TAB}'!A1:N500").execute().get("values", [])
+    out = {}
+    for r in vals:
+        r = list(r) + [""] * (14 - len(r))
+        d = _parse_date(r[COL_DATE])
+        if not d or d > date.today():
+            continue
+        v = _num(r[COL_24H])
+        if v and v > 0:
+            out[d.isoformat()] = int(v)
+    return out
+
+
 if __name__ == "__main__":
     import sys, io
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
