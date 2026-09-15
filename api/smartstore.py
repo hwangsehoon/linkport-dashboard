@@ -132,20 +132,26 @@ class SmartStoreClient:
                 print(f"[스마트스토어] 주문 상세 조회 실패: {e}")
                 continue
 
+        # 실제 '매출'로 인정하는 상태만 카운트한다.
+        # (결제대기 PAYMENT_WAITING 는 아직 결제 전 → 매출 아님. 판매자센터에도 안 잡힘)
+        PAID_STATUSES = {"PAYED", "DELIVERING", "DELIVERED", "PURCHASE_DECIDED", "EXCHANGED"}
         rows = []
         for order in all_orders:
             product_order = order.get("productOrder", {})
-            # 취소/환불 주문 제외
             status = product_order.get("productOrderStatus", "")
             claim_status = product_order.get("claimStatus", "") or ""
+            # 취소/환불 제외 + 결제완료 이상만 인정(결제대기 등 미결제 제외)
             if status in ("CANCELED", "RETURNED"):
                 continue
             if claim_status in ("CANCEL_DONE", "RETURN_DONE"):
                 continue
-            # placeOrderDate(주문일) 사용, 없으면 decisionDate
+            if status not in PAID_STATUSES:
+                continue   # 결제대기(PAYMENT_WAITING) 등 미결제 주문은 매출 아님
+            # 매출일 = 결제일(paymentDate). '주문만 하고 미결제'거나 '주문일≠결제일'인
+            # 주문이 엉뚱한 날에 잡히던 문제 방지. 결제일 없으면 주문일 보조.
             order_date = (
-                product_order.get("placeOrderDate", "") or
                 product_order.get("paymentDate", "") or
+                product_order.get("placeOrderDate", "") or
                 product_order.get("decisionDate", "")
             )[:10]
             if not order_date:
