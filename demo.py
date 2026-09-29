@@ -674,16 +674,35 @@ def kpi_card(label, value, delta_pct=None, spark=None, target_pct=None,
     )
     st.markdown(html, unsafe_allow_html=True)
 
+# 모든 탭의 기간 드롭다운이 공유하는 프리셋 순서 (요청: 오늘→직접설정)
+PERIOD_OPTS = ["오늘", "어제", "이번주", "지난주", "이번달", "지난달",
+               "최근 7일", "최근 14일", "최근 30일", "직접 설정"]
+
+
 def _quick_period(label, today):
-    """빠른 기간 선택(오늘/어제/최근 3일) → (시작, 종료). 해당 없으면 None."""
+    """프리셋 기간 라벨 → (시작, 종료). '직접 설정'이면 None(날짜 선택기로 처리)."""
     if label == "오늘":
         return today, today
     if label == "어제":
         _y = today - timedelta(days=1)
         return _y, _y
-    if label == "최근 3일":
-        return today - timedelta(days=2), today   # 오늘 포함 3일
-    return None
+    if label == "이번주":                          # 이번 주 월요일 ~ 오늘
+        return today - timedelta(days=today.weekday()), today
+    if label == "지난주":                          # 지난주 월요일 ~ 일요일
+        _mon = today - timedelta(days=today.weekday() + 7)
+        return _mon, _mon + timedelta(days=6)
+    if label == "이번달":                          # 이번달 1일 ~ 오늘
+        return today.replace(day=1), today
+    if label == "지난달":                          # 지난달 1일 ~ 말일
+        _last = today.replace(day=1) - timedelta(days=1)
+        return _last.replace(day=1), _last
+    if label == "최근 7일":
+        return today - timedelta(days=7), today
+    if label == "최근 14일":
+        return today - timedelta(days=14), today
+    if label == "최근 30일":
+        return today - timedelta(days=30), today
+    return None   # 직접 설정
 
 
 def get_daily(date_from, date_to, store_filter=None):
@@ -946,27 +965,23 @@ if page == "대시보드":
         pass   # 상태 테이블이 아직 없거나 조회 실패해도 대시보드는 정상 표시
 
     # ── 상단 툴바: 스토어 필터 + 기간 ────────────────────────────
-    period_options = {"오늘": 0, "어제": 0, "최근 3일": 3, "최근 7일": 7, "최근 14일": 14, "최근 30일": 30, "최근 90일": 90, "직접 설정": 0}
     _tb_l, _tb_r = st.columns([2.4, 1])
     with _tb_l:
         sf = store_filter_ui("dash")
     with _tb_r:
         st.markdown("<div style='height:26px'></div>", unsafe_allow_html=True)
-        period_sel = st.selectbox("기간", list(period_options.keys()), index=5,
+        period_sel = st.selectbox("기간", PERIOD_OPTS, index=0,   # 기본: 오늘
                                   key="dash_period", label_visibility="collapsed")
 
     _q = _quick_period(period_sel, today)
     if _q:
         d_from, d_to = _q
-    elif period_sel == "직접 설정":
+    else:   # 직접 설정
         _f1, _f2, _f3 = st.columns([1, 1, 2])
         with _f1:
             d_from = st.date_input("시작", today - timedelta(30), key="dash_from", format="YYYY/MM/DD")
         with _f2:
             d_to = st.date_input("종료", today, key="dash_to", format="YYYY/MM/DD")
-    else:
-        d_from = today - timedelta(period_options[period_sel])
-        d_to = today
 
     # 오늘/어제 집계
     t_s = df_sales[df_sales["날짜"] == today]
@@ -1052,7 +1067,7 @@ if page == "대시보드":
 
     with _r1b:
         with st.container(key="bento_donut", height="stretch"):
-            st.markdown(f'<div class="bento-title">스토어별 비중</div>'
+            st.markdown(f'<div class="bento-title">스토어별 매출</div>'
                         f'<div class="bento-sub">{_period_cap}</div>', unsafe_allow_html=True)
             if ch.empty:
                 empty_state("기간 내 매출이 없어요.", icon="🏪")
@@ -1076,7 +1091,7 @@ if page == "대시보드":
                     f"<div style='display:flex;align-items:center;gap:5px;'>"
                     f"<span style='width:8px;height:8px;border-radius:3px;background:{STORE_COLORS.get(r['스토어'], '#A8A29E')};flex:none;'></span>"
                     f"<span style='overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'>{r['스토어']}</span>"
-                    f"<span style='margin-left:auto;color:#8C8680;flex:none;'>{r['매출비중']:.0f}%</span></div>"
+                    f"<span style='margin-left:auto;color:#8C8680;flex:none;'>{fmt_full(int(r['매출']))}</span></div>"
                     for _, r in ch.head(4).iterrows())
                 st.markdown(f"<div style='display:grid;gap:5px;font-size:.75rem;margin-top:6px;'>{_legend}</div>",
                             unsafe_allow_html=True)
@@ -1259,20 +1274,16 @@ elif page == "브랜드 분석":
 
     # 기간 선택
     _btoday = _today_kst()
-    _bdays = {"최근 7일": 7, "최근 30일": 30, "최근 90일": 90}
-    _bopts = ["오늘", "어제", "최근 3일"] + list(_bdays) + ["직접 설정"]
-    _bsel = st.selectbox("기간", _bopts, index=4, key="brand_period")  # 기본 최근 30일
+    _bsel = st.selectbox("기간", PERIOD_OPTS, index=8, key="brand_period")  # 기본: 최근 30일
     _bq = _quick_period(_bsel, _btoday)
     if _bq:
         b_from, b_to = _bq
-    elif _bsel == "직접 설정":
+    else:   # 직접 설정
         col1, col2 = st.columns(2)
         with col1:
             b_from = st.date_input("시작일", _btoday - timedelta(30), key="brand_from", format="YYYY/MM/DD")
         with col2:
             b_to = st.date_input("종료일", _btoday, key="brand_to", format="YYYY/MM/DD")
-    else:
-        b_from, b_to = _btoday - timedelta(_bdays[_bsel]), _btoday
 
     # 브랜드별 매출 집계 (카페24=스토어명, 스마트스토어=아자차, 쿠팡=브랜드 컬럼)
     bs = df_sales[(df_sales["날짜"] >= b_from) & (df_sales["날짜"] <= b_to)].copy()
@@ -1375,29 +1386,24 @@ elif page == "브랜드 분석":
     _sel = st.radio("브랜드 선택", ["전체"] + main_brands, horizontal=True, key="brand_trend_sel")
     _show = main_brands if _sel == "전체" else [_sel]
     _today = _today_kst()
-    _PER = {"최근 7일": 7, "최근 14일": 14, "최근 30일": 30, "최근 90일": 90}
-    _POPTS = ["오늘", "어제", "최근 3일"] + list(_PER) + ["직접 설정"]
-
     def _chart_range(label, key):
         """기간 라벨 → (시작, 종료). '직접 설정'이면 날짜 선택기를 보여줌."""
         _q = _quick_period(label, _today)
         if _q:
             return _q
-        if label == "직접 설정":
-            _d1, _d2 = st.columns(2)
-            with _d1:
-                _s = st.date_input("시작", _today - timedelta(30), key=f"{key}_from", format="YYYY/MM/DD")
-            with _d2:
-                _e = st.date_input("종료", _today, key=f"{key}_to", format="YYYY/MM/DD")
-            return _s, _e
-        return _today - timedelta(_PER[label]), _today
+        _d1, _d2 = st.columns(2)      # 직접 설정
+        with _d1:
+            _s = st.date_input("시작", _today - timedelta(30), key=f"{key}_from", format="YYYY/MM/DD")
+        with _d2:
+            _e = st.date_input("종료", _today, key=f"{key}_to", format="YYYY/MM/DD")
+        return _s, _e
 
     # 브랜드별 매출 추이 (차트 자체 기간 선택 — 위로 안 올라가도 됨)
     _ct1, _cp1 = st.columns([3, 1])
     with _ct1:
         st.markdown('<div class="section-title">브랜드별 매출 추이</div>', unsafe_allow_html=True)
     with _cp1:
-        _pm = st.selectbox("기간", _POPTS, index=5, key="trend_sales_per", label_visibility="collapsed")
+        _pm = st.selectbox("기간", PERIOD_OPTS, index=8, key="trend_sales_per", label_visibility="collapsed")
     _sm, _em = _chart_range(_pm, "trend_sales")
     _ds = df_sales[(df_sales["날짜"] >= _sm) & (df_sales["날짜"] <= _em)].copy()
     if not _ds.empty:
@@ -1423,7 +1429,7 @@ elif page == "브랜드 분석":
     with _ct2:
         st.markdown('<div class="section-title">브랜드별 광고비 추이</div>', unsafe_allow_html=True)
     with _cp2:
-        _pa = st.selectbox("기간", _POPTS, index=5, key="trend_ad_per", label_visibility="collapsed")
+        _pa = st.selectbox("기간", PERIOD_OPTS, index=8, key="trend_ad_per", label_visibility="collapsed")
     _sa2, _ea2 = _chart_range(_pa, "trend_ad")
     _da = df_ads[(df_ads["날짜"] >= _sa2) & (df_ads["날짜"] <= _ea2)].copy()
     if not _da.empty:
@@ -1457,21 +1463,17 @@ elif page == "채널 분석":
     """, unsafe_allow_html=True)
 
     today = _today_kst()
-    period_map = {"오늘": 0, "어제": 0, "최근 3일": 3, "최근 7일": 7, "최근 30일": 30, "최근 90일": 90, "최근 180일": 180, "최근 365일": 365, "직접 설정": 0}
     col_p, col_f, col_t = st.columns([1, 1, 1])
     with col_p:
-        ch_period = st.selectbox("기간", list(period_map.keys()), index=5, key="ch_period")
+        ch_period = st.selectbox("기간", PERIOD_OPTS, index=8, key="ch_period")  # 기본: 최근 30일
     _q = _quick_period(ch_period, today)
     if _q:
         ch_from, ch_to = _q
-    elif ch_period == "직접 설정":
+    else:   # 직접 설정
         with col_f:
             ch_from = st.date_input("시작", today - timedelta(90), key="ch_from", format="YYYY/MM/DD")
         with col_t:
             ch_to = st.date_input("종료", today, key="ch_to", format="YYYY/MM/DD")
-    else:
-        ch_from = today - timedelta(period_map[ch_period])
-        ch_to = today
 
     ds = df_sales[(df_sales["날짜"] >= ch_from) & (df_sales["날짜"] <= ch_to)]
 
