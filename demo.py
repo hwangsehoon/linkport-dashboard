@@ -29,6 +29,37 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+
+def _secret(name):
+    """배포(Streamlit Cloud)는 st.secrets, 로컬은 .env(os.environ)에서 읽는다."""
+    try:
+        if name in st.secrets:
+            return st.secrets[name]
+    except Exception:
+        pass
+    return os.getenv(name)
+
+
+def _require_password():
+    """공개 URL 보호용 비밀번호 게이트. APP_PASSWORD 미설정 시(로컬/다른 배포) 그냥 통과."""
+    pw_conf = _secret("APP_PASSWORD")
+    if not pw_conf:                      # 비번 미설정 → 잠그지 않음
+        return
+    if st.session_state.get("auth_ok"):
+        return
+    st.markdown("### 🔒 광고일지 대시보드")
+    entered = st.text_input("비밀번호", type="password")
+    if entered:
+        if entered == pw_conf:
+            st.session_state["auth_ok"] = True
+            st.rerun()
+        else:
+            st.error("비밀번호가 틀렸습니다.")
+    st.stop()
+
+
+_require_password()
+
 # 날짜 선택 달력 팝업 한글화 (월·요일·월 선택 드롭다운). 자세한 내용은 모듈 참고.
 korean_calendar()
 
