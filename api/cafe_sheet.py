@@ -30,7 +30,7 @@ from api.db import _get_conn
 KEY_PATH = os.getenv(
     "GOOGLE_SA_KEY",
     r"C:\Users\조현우\Desktop\헤르메스\04_백업자료\google_sheets_api_key.json")
-SHEET_ID = "1oSHBSuOtKJkiuWstVBcegPP5VYgLudH4MyvDl5Hvxng"
+SHEET_ID = "1Bvro0GeUv5f5uC70PQ2MEqNo4OyWPE3Ag1QoRRmfHw0"  # ★N카페_제휴 (2026-10 시트 이전)
 TAB = "4)데이터 분석"
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 
